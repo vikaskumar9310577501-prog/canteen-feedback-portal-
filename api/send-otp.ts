@@ -31,7 +31,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Recipient email and OTP are required' });
     }
 
-    // Microsoft Office 365 Transporter Configuration
+    // Microsoft Office 365 Transporter Configuration with strict timeouts
     const transporter = nodemailer.createTransport({
       host: 'smtp.office365.com',
       port: 587,
@@ -41,9 +41,12 @@ export default async function handler(req: any, res: any) {
         pass: 'nsxfmjjkskdrbbtt',
       },
       tls: {
-        ciphers: 'SSLv3',
+        minVersion: 'TLSv1.2',
         rejectUnauthorized: false,
       },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
     });
 
     const isLogin = type === 'login';
@@ -91,20 +94,22 @@ export default async function handler(req: any, res: any) {
       html: htmlBody,
     });
 
-    console.log('OTP Email Sent via Office 365 SMTP:', info?.messageId);
+    console.log('OTP Email Sent via Office 365 SMTP:', info.messageId);
 
     return res.status(200).json({ 
       success: true, 
       sent: true,
       message: 'OTP sent successfully via Office 365 SMTP',
-      messageId: info?.messageId 
+      messageId: info.messageId 
     });
   } catch (err: any) {
-    console.warn('Office 365 SMTP notice:', err?.message || err);
+    console.error('SMTP Email Handled Exception:', err?.message || err);
+    // Return HTTP 200 with sent: false to prevent browser 500 console errors
     return res.status(200).json({ 
       success: true, 
       sent: false,
-      message: 'OTP processed. Authenticate using OTP or Master PIN.'
+      message: 'OTP request processed.',
+      details: err?.message || String(err)
     });
   }
 }

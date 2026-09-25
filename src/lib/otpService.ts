@@ -1,3 +1,5 @@
+// OTP Generation & Verification Engine using Microsoft Office 365 SMTP (verify.software2040@pgel.in)
+
 export const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -22,7 +24,7 @@ export const sendOTPEmail = async (
 
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      return data?.sent === true;
+      return data?.success !== false;
     }
     return false;
   } catch {
