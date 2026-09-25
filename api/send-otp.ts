@@ -51,44 +51,61 @@ export default async function handler(req: any, res: any) {
 
     const isLogin = type === 'login';
     const subject = isLogin
-      ? `🔒 Admin Portal Security Verification OTP: ${otp}`
-      : `🔑 PG Canteen Feedback Verification OTP: ${otp}`;
+      ? `[Canteen Feedback] Admin Login Security OTP: ${otp}`
+      : `[Canteen Feedback] Verification OTP: ${otp}`;
 
     const htmlBody = `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 550px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 20px; padding: 28px; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <!-- Hidden Inbox Preheader -->
+      <div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+        Canteen Feedback Portal Security OTP: ${otp}. Valid for 10 minutes.
+      </div>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 540px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px 28px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+        <!-- Top Canteen Feedback Header -->
         <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #10b981;">
-          <h2 style="color: #0f172a; margin: 0; font-size: 22px; font-weight: 800;">PG Electroplast Ltd</h2>
-          <p style="color: #059669; font-weight: 700; margin: 4px 0 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">
-            Canteen Feedback Portal • Security OTP Verification
+          <div style="display: inline-block; background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 14px; border-radius: 999px; margin-bottom: 10px;">
+            🍽️ Canteen Feedback System
+          </div>
+          <h1 style="color: #0f172a; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase;">
+            CANTEEN FEEDBACK PORTAL
+          </h1>
+          <p style="color: #059669; font-weight: 700; margin: 6px 0 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px;">
+            Security OTP Verification
           </p>
         </div>
 
-        <div style="padding: 24px 0; text-align: center;">
-          <p style="color: #334155; font-size: 15px; margin-bottom: 8px;">Hello <strong>${employeeName || 'Employee'}</strong>,</p>
-          <p style="color: #64748b; font-size: 13px; margin-bottom: 24px; line-height: 1.5;">
+        <!-- Body Content -->
+        <div style="padding: 28px 0; text-align: center;">
+          <p style="color: #1e293b; font-size: 16px; margin: 0 0 8px 0; font-weight: 700;">
+            Hello <strong>${employeeName || 'Admin'}</strong>,
+          </p>
+          <p style="color: #64748b; font-size: 13.5px; margin: 0 0 24px 0; line-height: 1.6;">
             ${isLogin 
-              ? 'Please enter the 6-digit security OTP below to authorize your Admin Portal login:' 
-              : 'Please enter the 6-digit verification OTP below to verify your email address and submit your canteen feedback:'}
+              ? 'Use the 6-digit security OTP code below to authorize your Canteen Feedback Portal login:' 
+              : 'Use the 6-digit verification code below to verify and submit your canteen feedback:'}
           </p>
 
-          <div style="display: inline-block; background-color: #f0fdf4; border: 2px solid #10b981; border-radius: 16px; padding: 16px 36px; letter-spacing: 10px; font-size: 36px; font-weight: 900; color: #047857; margin: 12px 0;">
+          <!-- OTP Digits Box -->
+          <div style="display: inline-block; background-color: #f0fdf4; border: 2px solid #10b981; border-radius: 16px; padding: 18px 40px; letter-spacing: 12px; font-size: 38px; font-weight: 900; color: #047857; margin: 8px 0; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12); font-family: 'Courier New', Courier, monospace;">
             ${otp}
           </div>
 
-          <p style="color: #94a3b8; font-size: 12px; margin-top: 20px; font-weight: 600;">
-            ⏳ This OTP is valid for 10 minutes. Do not share this OTP code with anyone.
-          </p>
+          <div style="margin-top: 22px;">
+            <span style="display: inline-block; background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 6px 16px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+              ⏳ Valid for 10 minutes • Do not share this OTP with anyone
+            </span>
+          </div>
         </div>
 
-        <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
-          Sent securely via Microsoft Office 365 (verify.software2040@pgel.in)<br/>
-          © PG Electroplast Ltd • Official Canteen Feedback Portal
+        <!-- Footer -->
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+          Official Canteen Feedback Management Portal<br/>
+          Automated System Message (verify.software2040@pgel.in)
         </div>
       </div>
     `;
 
     const info = await transporter.sendMail({
-      from: `"PG Canteen Security" <verify.software2040@pgel.in>`,
+      from: `"Canteen Feedback Portal" <verify.software2040@pgel.in>`,
       to: to,
       subject: subject,
       html: htmlBody,
