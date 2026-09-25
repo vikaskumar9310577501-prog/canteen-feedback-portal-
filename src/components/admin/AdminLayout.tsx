@@ -28,7 +28,7 @@ interface Props {
   activeTab: 'dashboard' | 'feed' | 'logs' | 'settings';
   onTabChange: (tab: 'dashboard' | 'feed' | 'logs' | 'settings') => void;
   onLogout: () => void;
-  onSwitchToKiosk: () => void;
+  onSwitchToKiosk?: () => void;
   onToggleTheme: () => void;
   onRefreshData?: () => void;
   onToggleFilter?: () => void;
@@ -165,17 +165,6 @@ export const AdminLayout: React.FC<Props> = ({
 
         {/* Bottom Actions */}
         <div className="space-y-1 pt-3 border-t border-slate-100">
-          {!isHrAdmin && (
-            <button
-              onClick={onSwitchToKiosk}
-              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
-              title="Switch to Feedback Form"
-            >
-              <Utensils className="w-4 h-4 text-emerald-600 shrink-0" />
-              {!isCollapsed && <span className="truncate">Feedback Form</span>}
-            </button>
-          )}
-
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -321,15 +310,6 @@ export const AdminLayout: React.FC<Props> = ({
               </div>
 
               <div className="pt-3 border-t border-slate-100 space-y-1">
-                {!isHrAdmin && (
-                  <button
-                    onClick={onSwitchToKiosk}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100"
-                  >
-                    <Utensils className="w-4 h-4 text-emerald-600" />
-                    <span>Feedback Form</span>
-                  </button>
-                )}
                 <button
                   onClick={onLogout}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50"

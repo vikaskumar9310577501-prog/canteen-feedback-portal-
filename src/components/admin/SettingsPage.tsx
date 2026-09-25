@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { 
-  Users, Building2, Sliders, Save, Plus, Trash2, Edit, Globe, Clock, Mail, MapPin, Tag, ShieldCheck, Lock, UserPlus, X, CheckCircle2, MailCheck, Send, Sparkles, AlertTriangle, RefreshCw, Database
+  Users, Building2, Sliders, Save, Plus, Trash2, Edit, Globe, Clock, Mail, MapPin, Tag, ShieldCheck, Lock, UserPlus, X, CheckCircle2, MailCheck, Send, Sparkles, AlertTriangle, RefreshCw, Database, QrCode
 } from 'lucide-react';
 import { SystemSettings, Plant, AdminProfile, AdminRole, DailyDigestConfig } from '../../types/database';
 import { saveSettings, triggerDailyDigestEmail, purge72HoursFeedbacks, resetToAugustMockData } from '../../lib/supabase';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { PlantQRModal } from '../common/QRCodeCard';
 
 interface Props {
   settings: SystemSettings;
@@ -45,6 +46,10 @@ export const SettingsPage: React.FC<Props> = ({
   const [isSeeding, setIsSeeding] = useState(false);
   const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
   const [isSeedModalOpen, setIsSeedModalOpen] = useState(false);
+
+  // Plant-Specific QR Code Modal State
+  const [qrModalPlant, setQrModalPlant] = useState<Plant | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const handleExecutePurge = async () => {
     setIsPurging(true);
@@ -1023,6 +1028,19 @@ export const SettingsPage: React.FC<Props> = ({
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
+                          onClick={() => {
+                            setQrModalPlant(p);
+                            setIsQrModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer shadow-2xs flex items-center gap-1 font-bold text-[11px]"
+                          title={`Generate & Download dedicated QR Code for ${p.name}`}
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>QR</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleStartEditPlant(p)}
                           className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all cursor-pointer shadow-2xs"
                           title="Edit Plant"
@@ -1672,6 +1690,14 @@ export const SettingsPage: React.FC<Props> = ({
         confirmText="Yes, Load Dataset"
         onConfirm={handleExecuteSeed}
         onClose={() => setIsSeedModalOpen(false)}
+      />
+
+      {/* Plant Dedicated QR Code Generator Modal */}
+      <PlantQRModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        plants={plants}
+        initialPlantId={qrModalPlant?.id || 'all'}
       />
     </div>
   );

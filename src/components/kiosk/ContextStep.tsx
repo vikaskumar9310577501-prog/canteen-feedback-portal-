@@ -1,12 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Plant, MealType, ShiftType, SystemSettings } from '../../types/database';
-import { ArrowLeft, ArrowRight, Building2, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, UtensilsCrossed, Lock, CheckCircle2 } from 'lucide-react';
 import { PgLogo } from '../common/PgLogo';
 
 interface Props {
   plants: Plant[];
+  lockedPlant?: Plant | null;
   settings?: SystemSettings;
   selectedPlant: string;
   selectedMeal: MealType | '';
@@ -20,6 +21,7 @@ interface Props {
 
 export const ContextStep: React.FC<Props> = ({
   plants,
+  lockedPlant,
   selectedPlant,
   selectedMeal,
   onChangePlant,
@@ -30,10 +32,16 @@ export const ContextStep: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
 
-  const isValid = Boolean(selectedMeal && selectedPlant);
-
   // Guarantee 100% Unique, Complete Plants List strictly for Feedback Form
   const uniquePlants = useMemo(() => {
+    // If a plant is specifically locked via QR code, strictly show ONLY that single plant
+    if (lockedPlant) {
+      return [{
+        ...lockedPlant,
+        display_name: (lockedPlant.display_name || `${lockedPlant.location} — ${lockedPlant.name} (${lockedPlant.code})`).trim(),
+      }];
+    }
+
     const seen = new Set<string>();
     const result: Plant[] = [];
 
@@ -52,7 +60,17 @@ export const ContextStep: React.FC<Props> = ({
     }
 
     return result;
-  }, [plants]);
+  }, [plants, lockedPlant]);
+
+  // If locked to a single plant from QR, automatically ensure it is selected
+  useEffect(() => {
+    if (uniquePlants.length === 1 && selectedPlant !== uniquePlants[0].id) {
+      onChangePlant(uniquePlants[0].id);
+    }
+  }, [uniquePlants, selectedPlant, onChangePlant]);
+
+  const effectiveSelectedPlant = selectedPlant || (uniquePlants.length === 1 ? uniquePlants[0].id : '');
+  const isValid = Boolean(selectedMeal && effectiveSelectedPlant);
 
   // Clean Meal Selection with Auto-Shift assignment (Lunch -> Day Shift, Dinner -> Night Shift)
   const handleSelectMealType = (meal: MealType) => {
@@ -139,23 +157,45 @@ export const ContextStep: React.FC<Props> = ({
 
         {/* 2. Manufacturing Plant Selection (Supports all locations: BHIWADI, SUPA, NOIDA, etc.) */}
         <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Manufacturing Plant & Location <span className="text-rose-500">*Required</span></span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Manufacturing Plant & Location <span className="text-rose-500">*Required</span></span>
+            </label>
+            {(lockedPlant || uniquePlants.length === 1) && (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5 text-emerald-600" />
+                <span>Assigned to this Plant QR</span>
+              </span>
+            )}
+          </div>
 
           <select
-            value={selectedPlant}
+            value={effectiveSelectedPlant}
             onChange={(e) => onChangePlant(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3.5 text-xs text-slate-900 font-extrabold focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+            disabled={Boolean(lockedPlant || uniquePlants.length === 1)}
+            className={`w-full border rounded-2xl p-3.5 text-xs font-extrabold shadow-xs transition-all ${
+              lockedPlant || uniquePlants.length === 1
+                ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 cursor-not-allowed'
+                : 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer'
+            }`}
           >
-            <option value="">Select Plant Location ({uniquePlants.length} available)...</option>
+            {uniquePlants.length > 1 && (
+              <option value="">Select Plant Location ({uniquePlants.length} available)...</option>
+            )}
             {uniquePlants.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.display_name}
               </option>
             ))}
           </select>
+
+          {(lockedPlant || uniquePlants.length === 1) && (
+            <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              <span>Feedback dedicated exclusively to {uniquePlants[0]?.display_name}</span>
+            </p>
+          )}
         </div>
 
         {/* Next Button */}

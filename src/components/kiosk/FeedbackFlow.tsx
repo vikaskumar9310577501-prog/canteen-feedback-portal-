@@ -46,6 +46,22 @@ const markSubmitted = () => {
   }
 };
 
+const getUrlPlantParam = (): string | null => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get('plant') ||
+      params.get('plant_id') ||
+      params.get('plantId') ||
+      params.get('plant_code') ||
+      params.get('code') ||
+      null
+    );
+  } catch {
+    return null;
+  }
+};
+
 export const FeedbackFlow: React.FC<Props> = ({ 
   plants, 
   settings, 
@@ -59,14 +75,42 @@ export const FeedbackFlow: React.FC<Props> = ({
   const [currentStep, setCurrentStep] = useState<number>(() => (hasAlreadySubmitted() && !allowRestart ? 10 : 0));
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>('en');
 
+  // Match specific plant from URL QR scan (?plant=2040, ?plant=4020, etc.)
+  const urlPlantParam = getUrlPlantParam();
+  const lockedPlant = React.useMemo(() => {
+    if (!urlPlantParam || !plants || plants.length === 0) return null;
+    const query = urlPlantParam.trim().toLowerCase();
+    return (
+      plants.find((p) => {
+        const pCode = (p.code || '').trim().toLowerCase();
+        const pId = (p.id || '').trim().toLowerCase();
+        const pName = (p.name || '').trim().toLowerCase();
+        const pDisp = (p.display_name || '').trim().toLowerCase();
+        return (
+          pCode === query ||
+          pId === query ||
+          pName === query ||
+          pDisp.includes(query) ||
+          (query.length >= 3 && (pCode.includes(query) || pName.includes(query)))
+        );
+      }) || null
+    );
+  }, [plants, urlPlantParam]);
+
   const [employeeName, setEmployeeName] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
 
   const [selectedMeal, setSelectedMeal] = useState<MealType | ''>('');
   const [selectedShift, setSelectedShift] = useState<ShiftType | ''>('');
-  const [selectedPlant, setSelectedPlant] = useState<string>('');
+  const [selectedPlant, setSelectedPlant] = useState<string>(() => lockedPlant ? lockedPlant.id : '');
+
+  // Keep selectedPlant in sync if lockedPlant matches after plants are fetched
+  React.useEffect(() => {
+    if (lockedPlant && selectedPlant !== lockedPlant.id) {
+      setSelectedPlant(lockedPlant.id);
+    }
+  }, [lockedPlant]);
 
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [remark, setRemark] = useState<string>('');
@@ -89,7 +133,7 @@ export const FeedbackFlow: React.FC<Props> = ({
       ((taste + quality + staff + hygiene) / 4).toFixed(2)
     );
 
-    const chosenPlantObj = plants.find(p => p.id === selectedPlant) || plants[0];
+    const chosenPlantObj = (lockedPlant || plants.find(p => p.id === selectedPlant)) || plants[0];
 
     const payload: Omit<FeedbackEntry, 'id' | 'created_at'> = {
       language: selectedLanguage,
@@ -108,7 +152,7 @@ export const FeedbackFlow: React.FC<Props> = ({
       remark: remark.trim() || undefined,
       employee_name: employeeName.trim() || undefined,
       employee_id: employeeId.trim() || undefined,
-      email: email.trim() || undefined,
+      email: undefined,
       phone: phone.trim() || undefined,
       device_info: 'Touchscreen Terminal',
       browser: navigator.userAgent.substring(0, 80),
@@ -144,11 +188,10 @@ export const FeedbackFlow: React.FC<Props> = ({
     setRemark('');
     setEmployeeName('');
     setEmployeeId('');
-    setEmail('');
     setPhone('');
     setSelectedMeal('');
     setSelectedShift('');
-    setSelectedPlant('');
+    setSelectedPlant(lockedPlant ? lockedPlant.id : '');
     setCurrentStep(0);
   };
 
@@ -227,11 +270,9 @@ export const FeedbackFlow: React.FC<Props> = ({
         <EmployeeInfoStep
           employeeName={employeeName}
           employeeId={employeeId}
-          email={email}
           phone={phone}
           onChangeName={setEmployeeName}
           onChangeId={setEmployeeId}
-          onChangeEmail={setEmail}
           onChangePhone={setPhone}
           onNext={() => setCurrentStep(3)}
           onBack={() => setCurrentStep(1)}
@@ -246,6 +287,7 @@ export const FeedbackFlow: React.FC<Props> = ({
         {renderTopBar()}
         <ContextStep
           plants={plants}
+          lockedPlant={lockedPlant}
           settings={settings}
           selectedMeal={selectedMeal}
           selectedShift={selectedShift}

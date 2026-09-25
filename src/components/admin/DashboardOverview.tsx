@@ -570,7 +570,7 @@ export const DashboardOverview: React.FC<Props> = ({
             })}
 
             <div className="lg:col-span-1">
-              <QRCodeCard />
+              <QRCodeCard plants={plants} selectedPlantId={selectedPlantId} />
             </div>
           </div>,
           kpiPortalEl

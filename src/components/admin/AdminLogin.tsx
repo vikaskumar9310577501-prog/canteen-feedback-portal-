@@ -8,7 +8,7 @@ import { PgLogo } from '../common/PgLogo';
 
 interface Props {
   onLoginSuccess: (admin: AdminProfile) => void;
-  onBackToKiosk: () => void;
+  onBackToKiosk?: () => void;
 }
 
 export const AdminLogin: React.FC<Props> = ({ onLoginSuccess, onBackToKiosk }) => {
@@ -119,14 +119,7 @@ export const AdminLogin: React.FC<Props> = ({ onLoginSuccess, onBackToKiosk }) =
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-between p-4 sm:p-6 select-none">
-      <div className="w-full max-w-lg flex items-center justify-between pt-2">
-        <button
-          onClick={onBackToKiosk}
-          className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1 cursor-pointer"
-        >
-          ← Open Feedback Form
-        </button>
-
+      <div className="w-full max-w-lg flex items-center justify-end pt-2">
         <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
           <span>Secure OTP Authentication</span>

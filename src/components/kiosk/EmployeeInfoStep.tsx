@@ -1,17 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { User, IdCard, Mail, Phone, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
+import { User, IdCard, Phone, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
 import { fetchGoogleTransliteration } from '../../lib/transliterateHindi';
 
 interface Props {
   employeeName: string;
   employeeId: string;
-  email: string;
+  email?: string;
   phone: string;
   onChangeName: (val: string) => void;
   onChangeId: (val: string) => void;
-  onChangeEmail: (val: string) => void;
+  onChangeEmail?: (val: string) => void;
   onChangePhone: (val: string) => void;
   onNext: () => void;
   onBack: () => void;
@@ -20,11 +20,9 @@ interface Props {
 export const EmployeeInfoStep: React.FC<Props> = ({
   employeeName,
   employeeId,
-  email,
   phone,
   onChangeName,
   onChangeId,
-  onChangeEmail,
   onChangePhone,
   onNext,
   onBack,
@@ -61,22 +59,8 @@ export const EmployeeInfoStep: React.FC<Props> = ({
     onChangePhone(digitsOnly);
   };
 
-  // Email ID: Silent Lower Case & Auto Space Stripping
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleanEmail = e.target.value.toLowerCase().replace(/\s+/g, '');
-    onChangeEmail(cleanEmail);
-  };
-
-  const handleEmailBlur = () => {
-    const cleanEmail = email.toLowerCase().replace(/\s+/g, '');
-    onChangeEmail(cleanEmail);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const cleanedEmail = email.toLowerCase().replace(/\s+/g, '');
-    onChangeEmail(cleanedEmail);
 
     if (!employeeName.trim()) {
       alert(isHindiMode ? 'कृपया कर्मचारी का नाम दर्ज करें।' : 'Please enter Employee Name.');
@@ -88,10 +72,6 @@ export const EmployeeInfoStep: React.FC<Props> = ({
     }
     if (!phone || phone.length !== 10) {
       alert(isHindiMode ? 'कृपया 10 अंकों का वैध फोन नंबर दर्ज करें।' : 'Please enter a valid 10-digit Phone Number.');
-      return;
-    }
-    if (!cleanedEmail || !cleanedEmail.includes('@')) {
-      alert(isHindiMode ? 'कृपया वैध ईमेल आईडी दर्ज करें।' : 'Please enter a valid Email ID.');
       return;
     }
 
@@ -191,24 +171,6 @@ export const EmployeeInfoStep: React.FC<Props> = ({
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-500 transition-all font-mono"
               />
             </div>
-          </div>
-
-          {/* Email ID */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('empInfo.emailLabel')}</span>
-              <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={email}
-              onChange={handleEmailChange}
-              onBlur={handleEmailBlur}
-              placeholder={isHindiMode ? 'ईमेल आईडी दर्ज करें' : 'Enter Email Address'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-500 transition-all lowercase"
-            />
           </div>
 
           <button

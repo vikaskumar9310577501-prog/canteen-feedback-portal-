@@ -169,6 +169,10 @@ export const App: React.FC = () => {
         const isKioskRoute = urlParams.has('kiosk') || 
                              urlParams.get('mode') === 'kiosk' || 
                              urlParams.has('feedback') ||
+                             urlParams.has('plant') ||
+                             urlParams.has('plant_id') ||
+                             urlParams.has('plantId') ||
+                             urlParams.has('code') ||
                              window.location.hash.includes('kiosk') || 
                              window.location.pathname.includes('/kiosk') ||
                              window.location.pathname.includes('/feedback');
@@ -211,6 +215,10 @@ export const App: React.FC = () => {
       bootParams.has('kiosk') ||
       bootParams.get('mode') === 'kiosk' ||
       bootParams.has('feedback') ||
+      bootParams.has('plant') ||
+      bootParams.has('plant_id') ||
+      bootParams.has('plantId') ||
+      bootParams.has('code') ||
       window.location.hash.includes('kiosk') ||
       window.location.pathname.includes('/kiosk') ||
       window.location.pathname.includes('/feedback');
