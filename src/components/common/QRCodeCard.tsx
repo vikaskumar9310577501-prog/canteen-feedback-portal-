@@ -161,183 +161,206 @@ export const PlantQRModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div 
         className="bg-white border border-slate-200/90 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95 duration-200 my-auto flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sm:px-8 bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs">
               <QrCode className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span>Plant QR Code Generator</span>
-                <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Desktop & Kiosk Ready
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Plant QR Code Generator</h2>
+                <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wider">
+                  Desktop & Poster Mode
                 </span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Generate, preview and print dedicated QR codes for manufacturing plants</p>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Generate dedicated QR codes for specific manufacturing plants</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+            className="p-2 rounded-xl hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body - 2 Column Desktop Layout */}
-        <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Configuration & Info (7 cols on desktop) */}
-          <div className="md:col-span-7 flex flex-col gap-4">
-            {/* Plant Selector Dropdown */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Select Manufacturing Plant:</span>
-              </label>
-
-              <select
-                value={selectedPlantId}
-                onChange={(e) => setSelectedPlantId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs sm:text-sm font-extrabold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer shadow-2xs transition-colors"
-              >
-                <option value="all">🌐 Universal QR (All Plants available in dropdown)</option>
-                {plants.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    📍 Plant {p.code} — {p.display_name || `${p.location} — ${p.name}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Dynamic lock info banner */}
-            {activePlant ? (
-              <div className="p-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-200 text-xs text-emerald-950 font-medium flex items-start gap-2.5">
-                <div className="p-1 rounded-lg bg-emerald-100 text-emerald-700 shrink-0 mt-0.5">
-                  <Lock className="w-4 h-4" />
+        {/* Content Body: 2 Column Desktop Layout */}
+        <div className="p-6 sm:p-8 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 items-start">
+            
+            {/* Left Column: Form Controls & Actions (7 Cols on desktop) */}
+            <div className="md:col-span-7 space-y-5">
+              
+              {/* Plant Selector */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Select Manufacturing Plant:</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-slate-400 font-mono">
+                    {plants.length} Units Configured
+                  </span>
                 </div>
-                <div className="space-y-0.5">
-                  <div className="font-extrabold text-emerald-900">Plant Locked Mode Enabled</div>
-                  <div className="text-[11.5px] text-emerald-800 leading-relaxed">
-                    Scanning this QR will automatically select and lock <strong>{activePlant.display_name}</strong> in the employee feedback form. Other plants will remain hidden.
+
+                <div className="relative">
+                  <select
+                    value={selectedPlantId}
+                    onChange={(e) => setSelectedPlantId(e.target.value)}
+                    className="w-full appearance-none bg-slate-50 border-2 border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-3 text-xs sm:text-sm font-extrabold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer shadow-2xs transition-colors pr-10"
+                  >
+                    <option value="all">🌐 Universal QR (All Plants available in dropdown)</option>
+                    {plants.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        📍 Plant {p.code} — {p.display_name || `${p.location} — ${p.name}`}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <Building2 className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium flex items-start gap-2.5">
-                <div className="p-1 rounded-lg bg-slate-200 text-slate-600 shrink-0 mt-0.5">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="space-y-0.5">
-                  <div className="font-extrabold text-slate-800">Universal Mode (All Plants)</div>
-                  <div className="text-[11.5px] text-slate-600 leading-relaxed">
-                    Employees scanning this QR code will be able to choose their manufacturing plant from the full active list.
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Direct URL preview box */}
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Direct Kiosk / Feedback Link:
-              </label>
-              <div className="w-full flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700">
-                <span className="truncate flex-1 select-all">{generatedUrl}</span>
+                {/* Plant Lock Info Status Box */}
+                {activePlant ? (
+                  <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-950 font-medium flex items-start gap-2.5">
+                    <div className="w-5 h-5 rounded-lg bg-emerald-200/80 flex items-center justify-center text-emerald-800 shrink-0 mt-0.5">
+                      <Lock className="w-3 h-3" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-emerald-900 text-xs">
+                        Plant Locked Mode Active
+                      </div>
+                      <div className="text-[11px] text-emerald-800/90 leading-relaxed mt-0.5">
+                        Scanning this QR will show <u>ONLY {activePlant.display_name}</u> in the form. Other plants will be hidden.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium flex items-start gap-2.5">
+                    <div className="w-5 h-5 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600 shrink-0 mt-0.5">
+                      <Sparkles className="w-3 h-3" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-slate-900 text-xs">
+                        Universal QR Mode Active
+                      </div>
+                      <div className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                        Employees will be able to select any active plant from the dropdown list.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Direct Feedback URL & Copy/Open */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Direct Kiosk / Feedback URL:
+                </label>
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 shadow-2xs">
+                  <span className="truncate flex-1 font-semibold">{generatedUrl}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-emerald-700 font-bold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                    title="Copy URL"
+                  >
+                    {hasCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(generatedUrl, '_blank')}
+                    className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition-all cursor-pointer shrink-0 shadow-2xs"
+                    title="Open Link in New Tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={handleCopyLink}
-                  className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-emerald-700 transition-colors shrink-0 cursor-pointer flex items-center gap-1 text-[11px] font-sans font-bold"
-                  title="Copy URL"
+                  onClick={() => downloadQrImage(generatedUrl, filename)}
+                  className="py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-emerald-400 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                 >
-                  {hasCopied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy</span>
-                    </>
-                  )}
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>Download High-Res PNG</span>
                 </button>
-                <a
-                  href={generatedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-emerald-700 transition-colors shrink-0 cursor-pointer"
-                  title="Open Link in New Tab"
+
+                <button
+                  type="button"
+                  onClick={() => printCanteenPoster(activePlant, generatedUrl)}
+                  className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/25"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                  <Printer className="w-4 h-4" />
+                  <span>Print Standee / Poster</span>
+                </button>
+              </div>
+
+              {/* Setup Guidance Info Banner */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-[11px] text-slate-500 flex items-center gap-2.5">
+                <span className="text-base shrink-0">💡</span>
+                <span>
+                  <strong>Tip for Admin:</strong> Print standees on A4 or sunboard and place them on dining tables and canteen entrance gates.
+                </span>
               </div>
             </div>
 
-            {/* Canteen Display Guidance Card */}
-            <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 text-[11.5px] text-amber-900 leading-relaxed">
-              <div className="font-extrabold text-amber-950 flex items-center gap-1.5 mb-1">
-                <span>💡 Recommended Canteen Deployment</span>
+            {/* Right Column: QR Showcase Card (5 Cols on desktop) */}
+            <div className="md:col-span-5 flex flex-col items-center justify-center">
+              <div className="w-full bg-gradient-to-b from-slate-50 to-emerald-50/40 border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center shadow-xs">
+                
+                {/* Ready Badge */}
+                <div className="mb-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-900 text-[11px] font-extrabold uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Ready to Scan</span>
+                </div>
+
+                {/* QR Code Frame with focus corners */}
+                <div className="relative bg-white p-3.5 rounded-2xl border-2 border-emerald-500/25 shadow-lg mb-3.5">
+                  <img
+                    src={qrImageUrl}
+                    alt="Plant Canteen QR"
+                    className="w-48 h-48 sm:w-52 sm:h-52 md:w-56 md:h-56 object-contain rounded-xl"
+                  />
+                  {/* Scanner corner markers */}
+                  <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-emerald-600 rounded-tl pointer-events-none" />
+                  <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-emerald-600 rounded-tr pointer-events-none" />
+                  <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-emerald-600 rounded-bl pointer-events-none" />
+                  <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-emerald-600 rounded-br pointer-events-none" />
+                </div>
+
+                {/* Plant Name & Code */}
+                <div className="text-xs sm:text-sm font-black text-slate-900 tracking-tight max-w-[240px] truncate">
+                  {activePlant ? activePlant.display_name : 'Universal PG Canteen QR'}
+                </div>
+                <div className="text-[11px] text-emerald-700 font-mono font-bold mt-0.5">
+                  {activePlant ? `Plant Code: ${activePlant.code}` : 'Multi-Plant Universal Access'}
+                </div>
               </div>
-              Print and place standees or posters on <strong>dining tables, canteen entry gates, and tray return stations</strong>. Employees can quickly scan with any smartphone camera without downloading any app.
-            </div>
-          </div>
-
-          {/* Right Column: QR Code Preview & Action Buttons (5 cols on desktop) */}
-          <div className="md:col-span-5 bg-gradient-to-b from-slate-50/80 to-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center justify-between text-center shadow-xs">
-            <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">
-              Live QR Preview
             </div>
 
-            {/* QR Image Card */}
-            <div className="bg-white p-3 rounded-2xl border-2 border-emerald-500/30 shadow-md">
-              <img
-                src={qrImageUrl}
-                alt="Plant Canteen QR"
-                className="w-44 h-44 sm:w-48 sm:h-48 object-contain rounded-xl"
-              />
-            </div>
-
-            {/* Plant Name & Code Badge */}
-            <div className="mt-3">
-              <div className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                {activePlant ? activePlant.display_name : 'Universal PG Canteen QR'}
-              </div>
-              <div className="inline-block text-[10.5px] text-emerald-800 font-mono font-bold mt-1 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                {activePlant ? `URL Plant Code: ${activePlant.code}` : 'Multi-Plant Universal'}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2.5 w-full mt-5 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => downloadQrImage(generatedUrl, filename)}
-                className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:border-emerald-400"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Download PNG</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => printCanteenPoster(activePlant, generatedUrl)}
-                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/25"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Poster</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
