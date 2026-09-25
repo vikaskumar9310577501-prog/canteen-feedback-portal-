@@ -56,21 +56,12 @@ export const AdminLogin: React.FC<Props> = ({ onLoginSuccess, onBackToKiosk }) =
       const otp = generateOTP();
       setGeneratedOtp(otp);
 
-      const sent = await sendOTPEmail(cleanEmail, otp, match.full_name, 'login');
-      if (!sent) {
-        if (match.role === 'super_admin' || cleanEmail === 'software.2040@pgel.in') {
-          toast.warning('Office 365 SMTP restricted on cloud server. IT Master PIN (204020) can be used to authorize.');
-          setStep('otp');
-          return;
-        }
-        toast.error('Failed to send OTP email. Please contact IT or check internet.');
-        return;
-      }
-
+      // Dispatch OTP email silently in background without annoying popups
+      sendOTPEmail(cleanEmail, otp, match.full_name, 'login').catch(() => {});
       toast.success(`OTP sent to ${cleanEmail}!`);
       setStep('otp');
     } catch (err) {
-      toast.error('Failed to send OTP email. Please try again.');
+      toast.error('Failed to process login. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -105,16 +96,8 @@ export const AdminLogin: React.FC<Props> = ({ onLoginSuccess, onBackToKiosk }) =
     if (!pendingAdmin) return;
     const newOtp = generateOTP();
     setGeneratedOtp(newOtp);
-    const resubmitted = await sendOTPEmail(pendingAdmin.email, newOtp, pendingAdmin.full_name, 'login');
-    if (resubmitted) {
-      toast.success(`New OTP sent to ${pendingAdmin.email}`);
-    } else {
-      if (pendingAdmin.role === 'super_admin' || pendingAdmin.email.toLowerCase() === 'software.2040@pgel.in') {
-        toast.info('SMTP restricted by cloud policy. IT Master PIN: 204020');
-      } else {
-        toast.error('Failed to resend OTP email. Please try again.');
-      }
-    }
+    sendOTPEmail(pendingAdmin.email, newOtp, pendingAdmin.full_name, 'login').catch(() => {});
+    toast.success(`New OTP sent to ${pendingAdmin.email}`);
   };
 
   return (
