@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { 
-  Star, Building2, Utensils, Calendar, Search, Trash2, CheckSquare, Square, X, MessageSquare, AlertCircle, ThumbsUp, Lock, User, Phone, Mail
+  Star, Building2, Utensils, Calendar, Search, Trash2, CheckSquare, Square, X, MessageSquare, AlertCircle, ThumbsUp, Lock, User, Phone, Mail,
+  Camera, Video, Wrench, ShieldCheck, Clock
 } from 'lucide-react';
 import { FeedbackEntry, Plant, AdminProfile } from '../../types/database';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { DateRangePicker, DateRange, isDateInRange } from '../common/DateRangePicker';
+import { FeedbackDetailModal } from './FeedbackDetailModal';
+import { ActionModal } from './ActionModal';
 
 interface Props {
   feedbacks: FeedbackEntry[];
@@ -14,13 +17,15 @@ interface Props {
   admin?: AdminProfile;
   onDeleteEntry: (id: string) => void;
   onDeleteMultipleEntries: (ids: string[]) => void;
+  onUpdateEntry?: (updated: FeedbackEntry) => void;
 }
 
 export const EmployeeFeedView: React.FC<Props> = ({ 
   feedbacks, 
   admin,
   onDeleteEntry, 
-  onDeleteMultipleEntries 
+  onDeleteMultipleEntries,
+  onUpdateEntry,
 }) => {
   const isItAdmin = !admin || admin.role === 'super_admin' || admin.role === 'it_admin';
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,19 +36,37 @@ export const EmployeeFeedView: React.FC<Props> = ({
 
   // Detailed Feedback Modal View State
   const [activeDetailEntry, setActiveDetailEntry] = useState<FeedbackEntry | null>(null);
+  const [actionTarget, setActionTarget] = useState<FeedbackEntry | null>(null);
 
   // Modal Confirm Delete State
   const [individualDeleteTarget, setIndividualDeleteTarget] = useState<{ id: string; ticket?: string } | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState<boolean>(false);
 
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const mostRecentDateStr = feedbacks.some(f => f.created_at?.startsWith(todayStr))
+    ? todayStr
+    : (feedbacks[0]?.created_at?.slice(0, 10) || todayStr);
+
+  const isEntrySatisfied = (item: FeedbackEntry) => {
+    if (item.satisfaction_status === 'satisfied') return true;
+    if (item.satisfaction_status === 'unsatisfied') return false;
+    return item.overall_rating >= 4.0;
+  };
+
+  const isEntryUnsatisfied = (item: FeedbackEntry) => {
+    if (item.satisfaction_status === 'unsatisfied') return true;
+    if (item.satisfaction_status === 'satisfied') return false;
+    return item.overall_rating <= 2.5;
+  };
+
   const getFilteredFeed = () => {
     return feedbacks.filter((item) => {
       if (activeFeedFilter === 'latest') {
-        if (!item.created_at.startsWith('2026-08-31')) return false;
+        if (!item.created_at.startsWith(mostRecentDateStr)) return false;
       } else if (activeFeedFilter === 'happy') {
-        if (item.overall_rating < 4.0) return false;
+        if (!isEntrySatisfied(item)) return false;
       } else if (activeFeedFilter === 'poor') {
-        if (item.overall_rating > 2.5) return false;
+        if (!isEntryUnsatisfied(item)) return false;
       }
 
       if (!isDateInRange(item.created_at, startDate, endDate)) {
@@ -71,9 +94,9 @@ export const EmployeeFeedView: React.FC<Props> = ({
 
   const filteredFeed = getFilteredFeed();
   const dateBaseFeed = feedbacks.filter(f => isDateInRange(f.created_at, startDate, endDate));
-  const latestCount = feedbacks.filter(f => f.created_at.startsWith('2026-08-31')).length;
-  const satisfiedCount = dateBaseFeed.filter(f => f.overall_rating >= 4.0).length;
-  const unsatisfiedCount = dateBaseFeed.filter(f => f.overall_rating <= 2.5).length;
+  const latestCount = feedbacks.filter(f => f.created_at.startsWith(mostRecentDateStr)).length;
+  const satisfiedCount = dateBaseFeed.filter(f => isEntrySatisfied(f)).length;
+  const unsatisfiedCount = dateBaseFeed.filter(f => isEntryUnsatisfied(f)).length;
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -381,6 +404,50 @@ export const EmployeeFeedView: React.FC<Props> = ({
                       No written remark provided
                     </div>
                   )}
+
+                  {/* Media & Action Status Indicators */}
+                  <div className="flex flex-wrap items-center justify-between gap-1 pt-1">
+                    {/* Media Attachments Indicator */}
+                    <div className="flex items-center gap-1">
+                      {item.images && item.images.length > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[9px] font-bold inline-flex items-center gap-0.5 border border-slate-200">
+                          <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                          <span>{item.images.length} photo{item.images.length > 1 ? 's' : ''}</span>
+                        </span>
+                      )}
+                      {item.video_url && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[9px] font-bold inline-flex items-center gap-0.5 border border-blue-200">
+                          <Video className="w-2.5 h-2.5 text-blue-600" />
+                          <span>Video</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Grievance Action Status */}
+                    {(isUnsatisfied || item.satisfaction_status === 'unsatisfied' || item.action_status) && (
+                      <div className="flex items-center gap-1 ml-auto">
+                        {item.action_status === 'resolved' ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[9.5px] font-black inline-flex items-center gap-1 border border-emerald-200">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            <span>Action Resolved</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionTarget(item);
+                            }}
+                            className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-extrabold inline-flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                            title="Take Corrective Action"
+                          >
+                            <Wrench className="w-2.5 h-2.5" />
+                            <span>Take Action</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Card Footer */}
@@ -400,168 +467,29 @@ export const EmployeeFeedView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Detailed Modal View (Fixed Viewport & Scrollable) */}
-      <AnimatePresence>
-        {activeDetailEntry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
-            onClick={() => setActiveDetailEntry(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl max-w-lg w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden my-auto"
-            >
-              {/* Sticky Top Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
-                    <MessageSquare className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-black text-slate-900 text-base leading-tight truncate">
-                      Feedback Details
-                    </h3>
-                    <div className="text-[11px] font-mono font-bold text-slate-500 flex items-center gap-1.5 mt-0.5">
-                      <span className="text-emerald-700 font-extrabold">{formatTicketNumber(activeDetailEntry.id)}</span>
-                      <span>•</span>
-                      <span>{new Date(activeDetailEntry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setActiveDetailEntry(null)} 
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-                  title="Close Dialog"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* Modern Detailed Modal View with Photos, Video & Corrective Action */}
+      <FeedbackDetailModal
+        isOpen={Boolean(activeDetailEntry)}
+        feedback={activeDetailEntry}
+        isItAdmin={isItAdmin}
+        adminName={admin?.full_name || 'Canteen Admin'}
+        onClose={() => setActiveDetailEntry(null)}
+        onActionSaved={(updated) => {
+          setActiveDetailEntry(updated);
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
 
-              {/* Scrollable Modal Content Body */}
-              <div className="p-5 overflow-y-auto space-y-4 text-xs">
-                {/* Overall Rating & Context */}
-                <div className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-200/80">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-700 text-xs uppercase tracking-wider">Overall Score</span>
-                    <span className={`px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1 shadow-2xs ${
-                      activeDetailEntry.overall_rating >= 4 
-                        ? 'bg-emerald-500 text-white' 
-                        : activeDetailEntry.overall_rating <= 2.5 
-                          ? 'bg-rose-600 text-white' 
-                          : 'bg-amber-500 text-white'
-                    }`}>
-                      {activeDetailEntry.overall_rating} ★ Overall
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-800 pt-1">
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200/70 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Manufacturing Plant:</span>
-                      <span className="text-emerald-700 truncate block mt-0.5">{activeDetailEntry.plant_display_name || activeDetailEntry.plant_name}</span>
-                    </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200/70 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Meal & Shift:</span>
-                      <span className="truncate block mt-0.5">{activeDetailEntry.meal_type} ({activeDetailEntry.shift})</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4 Parameters Detailed Rating */}
-                <div className="p-4 bg-slate-50 rounded-2xl space-y-2.5 border border-slate-200/80">
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">4 Core Parameters Score:</h4>
-                  <div className="grid grid-cols-2 gap-2.5 text-xs">
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🍲 Food Taste:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.food_taste} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🍱 Food Quality:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.food_quality} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🤝 Staff Behavior:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.staff_behaviour} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>✨ Hygiene:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.hygiene} ★</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Written Remark */}
-                {activeDetailEntry.remark ? (
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Written Remark / Suggestion:</span>
-                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 text-slate-900 rounded-2xl italic text-xs leading-relaxed border border-emerald-200 font-medium shadow-2xs">
-                      "{activeDetailEntry.remark}"
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
-                    No written remark provided
-                  </div>
-                )}
-
-                {/* Employee Submitter Identity (IT Admin vs HR Admin) */}
-                {isItAdmin ? (
-                  <div className="p-4 bg-purple-50/80 rounded-2xl space-y-2.5 border border-purple-200">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-purple-700" />
-                        <span>Employee Submitter Identity (IT Admin Access)</span>
-                      </h4>
-                      <span className="text-[9px] font-black px-2 py-0.5 bg-purple-200 text-purple-900 rounded-full uppercase">
-                        IT Admin Only
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                        <span className="text-[10px] text-slate-400 block font-semibold">Employee Name:</span>
-                        <strong className="text-slate-900 truncate block mt-0.5">{activeDetailEntry.employee_name || 'Anonymous'}</strong>
-                      </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                        <span className="text-[10px] text-slate-400 block font-semibold">Employee ID:</span>
-                        <strong className="text-purple-800 font-mono block mt-0.5">{activeDetailEntry.employee_id || 'N/A'}</strong>
-                      </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                        <span className="text-[10px] text-slate-400 block font-semibold">Email Address:</span>
-                        <span className="text-slate-700 font-mono text-[11px] truncate block mt-0.5">{activeDetailEntry.email || 'N/A'}</span>
-                      </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                        <span className="text-[10px] text-slate-400 block font-semibold">Contact Phone:</span>
-                        <span className="text-slate-700 font-mono text-[11px] block mt-0.5">{activeDetailEntry.phone || 'N/A'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-slate-600 text-xs font-semibold flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-                      <Lock className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">Employee Identity Anonymized</div>
-                      <div className="text-[11px] text-slate-500 font-normal">Confidential for HR Admin. Full employee identity is restricted to IT Admin only.</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 font-mono text-center shrink-0">
-                Submitted on {new Date(activeDetailEntry.created_at).toLocaleString()}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Quick Action Recording Modal */}
+      <ActionModal
+        isOpen={Boolean(actionTarget)}
+        feedback={actionTarget}
+        adminName={admin?.full_name || 'Canteen Admin'}
+        onClose={() => setActionTarget(null)}
+        onActionSaved={(updated) => {
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
 
       {/* Delete Modals */}
       <ConfirmModal

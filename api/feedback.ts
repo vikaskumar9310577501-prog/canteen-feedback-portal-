@@ -95,11 +95,31 @@ async function saveFeedback(entry: StoredFeedback): Promise<StoredFeedback> {
     }
     await redis.lpush(LIST_KEY, JSON.stringify(entry));
   } catch (e) {
-    console.warn('Save feedback Redis fallback', e);
-    await redis.del(LIST_KEY);
-    await redis.lpush(LIST_KEY, JSON.stringify(entry));
+    console.error('Save feedback Redis error', e);
+    throw e;
   }
   return entry;
+}
+
+async function updateFeedback(id: string, updates: Record<string, unknown>): Promise<StoredFeedback | null> {
+  const redis = getRedis();
+  const existing = await listFeedbacks();
+  let updatedEntry: StoredFeedback | null = null;
+  const next = existing.map((f) => {
+    if (f.id === id) {
+      updatedEntry = { ...f, ...updates };
+      return updatedEntry;
+    }
+    return f;
+  });
+
+  if (!updatedEntry) return null;
+
+  await redis.del(LIST_KEY);
+  for (const entry of [...next].reverse()) {
+    await redis.lpush(LIST_KEY, JSON.stringify(entry));
+  }
+  return updatedEntry;
 }
 
 async function removeFeedbacks(ids: string[]): Promise<number> {
@@ -120,7 +140,7 @@ async function removeFeedbacks(ids: string[]): Promise<number> {
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
 
@@ -183,6 +203,27 @@ export default async function handler(req: any, res: any) {
       const saved = await saveFeedback({ ...entry, id, created_at });
       console.log('Feedback saved', saved.id, saved.employee_name);
       return res.status(201).json({ feedback: saved });
+    }
+
+    if (req.method === 'PUT') {
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          return res.status(400).json({ error: 'Invalid JSON body' });
+        }
+      }
+      body = body || {};
+      const { id, updates } = body;
+      if (!id || !updates || typeof updates !== 'object') {
+        return res.status(400).json({ error: 'Feedback id and updates object are required' });
+      }
+      const updated = await updateFeedback(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Feedback entry not found' });
+      }
+      return res.status(200).json({ ok: true, feedback: updated });
     }
 
     if (req.method === 'DELETE') {

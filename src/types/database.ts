@@ -54,6 +54,15 @@ export interface FeedbackEntry {
   browser?: string;
   submitted_from?: string;
   created_at: string;
+  // Grievance, Media & Corrective Action Fields
+  satisfaction_status?: 'satisfied' | 'unsatisfied';
+  images?: string[];
+  video_url?: string;
+  action_status?: 'pending' | 'resolved';
+  action_taken?: string;
+  action_by?: string;
+  action_at?: string;
+  action_evidence_url?: string;
 }
 
 export interface AdminProfile {
@@ -100,6 +109,8 @@ export interface FeedbackFilterOptions {
   shift?: string;
   minRating?: number;
   language?: string;
+  satisfactionStatus?: 'all' | 'satisfied' | 'unsatisfied';
+  actionStatus?: 'all' | 'pending' | 'resolved';
 }
 
 export interface DashboardStats {
@@ -111,4 +122,7 @@ export interface DashboardStats {
   poorCount: number;
   totalRemarks: number;
   satisfactionScore: number;
+  actionsTakenCount: number;
+  pendingActionsCount: number;
 }
+

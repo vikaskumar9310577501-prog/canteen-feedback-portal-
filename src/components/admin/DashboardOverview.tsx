@@ -9,12 +9,15 @@ import {
 import { 
   MessageSquare, Star, Smile, AlertCircle, Sparkles, TrendingUp, Filter, RotateCcw,
   Utensils, Sun, Moon, X, MessageSquareText, Coffee, ThumbsUp,
-  Clock, Award, Flame, ShieldCheck, HeartHandshake, ChevronRight, PieChart, Check
+  Clock, Award, Flame, ShieldCheck, HeartHandshake, ChevronRight, PieChart, Check,
+  Camera, Video, Wrench, FileCheck, CheckCircle2
 } from 'lucide-react';
 import { DashboardStats, FeedbackEntry, Plant } from '../../types/database';
 import { calculateDashboardStats } from '../../lib/supabase';
 import { QRCodeCard } from '../common/QRCodeCard';
 import { DateRangePicker, DateRange, isDateInRange } from '../common/DateRangePicker';
+import { FeedbackDetailModal } from './FeedbackDetailModal';
+import { ActionModal } from './ActionModal';
 
 interface Props {
   stats: DashboardStats;
@@ -22,6 +25,9 @@ interface Props {
   plants?: Plant[];
   isFilterOpen?: boolean;
   onCloseFilter?: () => void;
+  onUpdateEntry?: (updated: FeedbackEntry) => void;
+  adminName?: string;
+  isItAdmin?: boolean;
 }
 
 // SVG Circular Gauge Component for Parameter Scores
@@ -51,10 +57,15 @@ export const DashboardOverview: React.FC<Props> = ({
   feedbacks, 
   plants = [],
   isFilterOpen = false,
-  onCloseFilter
+  onCloseFilter,
+  onUpdateEntry,
+  adminName = 'Canteen Administrator',
+  isItAdmin = true,
 }) => {
   const { t } = useTranslation();
   const [kpiPortalEl, setKpiPortalEl] = useState<HTMLElement | null>(null);
+  const [activeDetailEntry, setActiveDetailEntry] = useState<FeedbackEntry | null>(null);
+  const [actionTarget, setActionTarget] = useState<FeedbackEntry | null>(null);
   const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -137,7 +148,7 @@ export const DashboardOverview: React.FC<Props> = ({
 
     if (targetKeys.length === 0) {
       const result = [];
-      const now = new Date(2026, 7, 31);
+      const now = new Date();
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
@@ -167,7 +178,7 @@ export const DashboardOverview: React.FC<Props> = ({
   // 2. Calculate Last 7 Weeks Feedback Data
   const getLast7WeeksData = () => {
     const result = [];
-    const now = new Date(2026, 7, 31);
+    const now = new Date();
     for (let i = 6; i >= 0; i--) {
       const weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() - i * 7);
@@ -201,7 +212,7 @@ export const DashboardOverview: React.FC<Props> = ({
   // 3. Calculate Last 5 Months Feedback Trend Data
   const getLast5MonthsData = () => {
     const result = [];
-    const now = new Date(2026, 7, 31);
+    const now = new Date();
     for (let i = 4; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStart = d.getTime();
@@ -302,6 +313,13 @@ export const DashboardOverview: React.FC<Props> = ({
       nightCount: nightEntries.length,
       nightAvg: calcAvg(nightEntries),
     };
+  }, [filteredFeedbacks]);
+
+  // Grievances requiring corrective action
+  const grievanceFeedbacks = useMemo(() => {
+    return filteredFeedbacks.filter(
+      f => f.satisfaction_status === 'unsatisfied' || f.overall_rating <= 2.5 || Boolean(f.action_status)
+    );
   }, [filteredFeedbacks]);
 
   const isFilterActive = selectedLocation !== 'all' || selectedPlantId !== 'all' || selectedShiftFilter !== 'all' || Boolean(startDate || endDate);
@@ -471,7 +489,7 @@ export const DashboardOverview: React.FC<Props> = ({
       {/* KPI Cards Portaled into Sticky Top Header Stack */}
       {kpiPortalEl &&
         createPortal(
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-11 gap-2">
             {/* KPI 1: Today's Feedback (Lavender Tint) */}
             <div
               className="relative overflow-hidden rounded-2xl p-3 h-[84px] flex flex-col justify-between border border-[#E0E0FB] bg-[#F4F4FD] shadow-2xs group hover:shadow-md transition-all duration-300"
@@ -532,11 +550,53 @@ export const DashboardOverview: React.FC<Props> = ({
               </div>
               <div>
                 <div className="text-xl font-black text-slate-900 leading-none">{currentStats.poorCount}</div>
-                <p className="text-[9px] font-bold text-slate-500 mt-0.5">Alerts Pending</p>
+                <p className="text-[9px] font-bold text-slate-500 mt-0.5">Alerts Raised</p>
               </div>
             </div>
 
-            {/* 4 Core Circular Gauge Metrics (Matching Screenshot 2) */}
+            {/* KPI 5: Actions Taken / Resolved (Emerald Tint) */}
+            <div
+              className="relative overflow-hidden rounded-2xl p-3 h-[84px] flex flex-col justify-between border border-[#A7F3D0] bg-[#ECFDF5] shadow-2xs group hover:shadow-md transition-all duration-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-950">ACTIONS</span>
+                <div className="w-7 h-7 rounded-xl bg-[#059669] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xl font-black text-emerald-900 leading-none">{currentStats.actionsTakenCount ?? 0}</div>
+                <p className="text-[9px] font-bold text-emerald-700 mt-0.5">Resolved Issues</p>
+              </div>
+            </div>
+
+            {/* KPI 6: Pending Actions (Amber / Alert Tint) */}
+            <div
+              className={`relative overflow-hidden rounded-2xl p-3 h-[84px] flex flex-col justify-between border shadow-2xs group hover:shadow-md transition-all duration-300 ${
+                (currentStats.pendingActionsCount ?? 0) > 0
+                  ? 'border-amber-300 bg-amber-50/90'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-950">PENDING</span>
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform ${
+                  (currentStats.pendingActionsCount ?? 0) > 0 ? 'bg-amber-600 text-white' : 'bg-slate-400 text-white'
+                }`}>
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className={`text-xl font-black leading-none ${
+                  (currentStats.pendingActionsCount ?? 0) > 0 ? 'text-amber-950' : 'text-slate-700'
+                }`}>
+                  {currentStats.pendingActionsCount ?? 0}
+                </div>
+                <p className="text-[9px] font-bold text-amber-800 mt-0.5">Needs Action</p>
+              </div>
+            </div>
+
+            {/* 4 Core Circular Gauge Metrics */}
             {[
               { key: 'food_taste', title: 'TASTE', emoji: '🍲' },
               { key: 'food_quality', title: 'QUALITY', emoji: '🍱' },
@@ -913,6 +973,203 @@ export const DashboardOverview: React.FC<Props> = ({
           </div>
         </motion.div>
       </div>
+
+      {/* ═══ Grievance Redressal & Actions Center ═══ */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="bg-white border border-slate-200/90 rounded-3xl p-5 shadow-xs hover:shadow-md transition-all duration-300 space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/20 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <span>Grievances & Corrective Action Log</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  {grievanceFeedbacks.length} Total
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Review complaints, track corrective actions taken in English, and review photo/video evidence.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Resolved: {currentStats.actionsTakenCount ?? 0}</span>
+            </span>
+
+            {(currentStats.pendingActionsCount ?? 0) > 0 ? (
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs animate-pulse">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Pending Action: {currentStats.pendingActionsCount}</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+                0 Pending
+              </span>
+            )}
+          </div>
+        </div>
+
+        {grievanceFeedbacks.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+            <ShieldCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+            <h4 className="text-xs font-black text-slate-700">Zero Active Grievances</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">All canteen feedbacks in this filtered view are positive. No pending corrective actions.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {grievanceFeedbacks.map((item) => {
+              const isResolved = item.action_status === 'resolved';
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                    isResolved
+                      ? 'bg-slate-50/80 border-slate-200 hover:bg-slate-50'
+                      : 'bg-rose-50/40 border-rose-200/90 hover:bg-rose-50/70'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[10px] font-black text-slate-500 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                          #{item.id.slice(0, 8)}
+                        </span>
+                        <span className="font-extrabold text-xs text-slate-900">
+                          {item.plant_display_name || item.plant_name}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-semibold">
+                          • {item.meal_type}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                        {new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[10.5px] font-black shadow-2xs">
+                        ★ {item.overall_rating}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Complaint Description */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs italic text-slate-800 leading-relaxed font-medium shadow-2xs">
+                    "{item.remark || 'Unsatisfied feedback submission with no written remark'}"
+                  </div>
+
+                  {/* Media attachments */}
+                  {((item.images && item.images.length > 0) || item.video_url) && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item.images && item.images.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs">
+                          <Camera className="w-3 h-3 text-emerald-600" />
+                          <span>{item.images.length} Evidence Photo{item.images.length > 1 ? 's' : ''}</span>
+                        </span>
+                      )}
+                      {item.video_url && (
+                        <span className="px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs">
+                          <Video className="w-3 h-3 text-blue-600" />
+                          <span>Evidence Video</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Status & Details */}
+                  {isResolved ? (
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] space-y-1.5">
+                      <div className="flex items-center justify-between text-emerald-950 font-black">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Action Taken:</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActionTarget(item)}
+                          className="text-[10px] text-emerald-700 hover:text-emerald-900 underline font-bold cursor-pointer"
+                        >
+                          Edit Action
+                        </button>
+                      </div>
+                      <p className="text-slate-800 font-medium leading-relaxed bg-white/80 p-2 rounded-lg border border-emerald-100">
+                        {item.action_taken}
+                      </p>
+                      <div className="text-[10px] text-slate-500 font-medium flex justify-between items-center pt-0.5">
+                        <span>Action By: <strong>{item.action_by || 'Admin'}</strong></span>
+                        {item.action_at && (
+                          <span>{new Date(item.action_at).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                        <span>Awaiting Administrative Action</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setActionTarget(item)}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        <span>Take Action</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailEntry(item)}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>View Full Details & Media Gallery</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Modern Feedback Detail Modal */}
+      <FeedbackDetailModal
+        isOpen={Boolean(activeDetailEntry)}
+        feedback={activeDetailEntry}
+        isItAdmin={isItAdmin}
+        adminName={adminName}
+        onClose={() => setActiveDetailEntry(null)}
+        onActionSaved={(updated) => {
+          setActiveDetailEntry(updated);
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
+
+      {/* Action Recording Modal */}
+      <ActionModal
+        isOpen={Boolean(actionTarget)}
+        feedback={actionTarget}
+        adminName={adminName}
+        onClose={() => setActionTarget(null)}
+        onActionSaved={(updated) => {
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
     </div>
   );
 };

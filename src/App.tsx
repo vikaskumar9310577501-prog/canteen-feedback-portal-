@@ -87,6 +87,7 @@ export const App: React.FC = () => {
 
   // Active Filter State
   const [activeFilters, setActiveFilters] = useState<FeedbackFilterOptions>({});
+  const activeFiltersRef = useRef(activeFilters);
   
   // Track previous feedback IDs to detect brand new submissions
   const previousFeedbackIdsRef = useRef<Set<string>>(new Set());
@@ -101,6 +102,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     activeAdminRef.current = activeAdmin;
   }, [activeAdmin]);
+
+  useEffect(() => {
+    activeFiltersRef.current = activeFilters;
+  }, [activeFilters]);
 
   // Browser Desktop Tab Notification Permission (admin only — mobile kiosk cannot use Notification API)
   const requestNotificationPermission = () => {
@@ -246,27 +251,38 @@ export const App: React.FC = () => {
           knownIds.add(item.id);
           handleNewFeedbackAlert(item);
         });
+        setFeedbacks(latestList);
+      } else {
+        setFeedbacks((prev) => {
+          const prevMap = new Map(prev.map(p => [p.id, p]));
+          const hasChange = latestList.some(item => {
+            const old = prevMap.get(item.id);
+            return !old || old.action_status !== item.action_status || old.action_taken !== item.action_taken;
+          }) || prev.length !== latestList.length;
+          return hasChange ? latestList : prev;
+        });
       }
-      setFeedbacks(latestList);
     };
 
     const handleStorageChange = async () => {
-      const latest = await fetchFeedbacks(activeFilters);
+      const latest = await fetchFeedbacks(activeFiltersRef.current);
       checkAndNotifyNewFeedbacks(latest);
     };
     window.addEventListener('storage', handleStorageChange);
 
+    // Only poll when an Admin is viewing the dashboard! Never on Employee Kiosk or QR links!
     const pollInterval = setInterval(async () => {
-      const latest = await fetchFeedbacks(activeFilters);
+      if (appModeRef.current !== 'admin_dashboard') return;
+      const latest = await fetchFeedbacks(activeFiltersRef.current);
       checkAndNotifyNewFeedbacks(latest);
-    }, 1500);
+    }, 15000);
 
     return () => {
       unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(pollInterval);
     };
-  }, [activeFilters]);
+  }, []);
 
   const handleManualRefreshData = async () => {
     const latest = await fetchFeedbacks(activeFilters);
@@ -292,6 +308,10 @@ export const App: React.FC = () => {
   const handleDeleteMultipleEntries = async (ids: string[]) => {
     await deleteMultipleFeedbackEntries(ids);
     setFeedbacks((prev) => prev.filter((item) => !ids.includes(item.id)));
+  };
+
+  const handleUpdateEntry = (updated: FeedbackEntry) => {
+    setFeedbacks((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
   };
 
   const handleAddPlant = async (newPlant: Plant) => {
@@ -493,6 +513,9 @@ export const App: React.FC = () => {
                 plants={effectivePlants} 
                 isFilterOpen={isHeaderFilterOpen}
                 onCloseFilter={() => setIsHeaderFilterOpen(false)}
+                onUpdateEntry={handleUpdateEntry}
+                adminName={activeAdmin?.full_name}
+                isItAdmin={activeAdmin?.role === 'super_admin' || activeAdmin?.role === 'it_admin'}
               />
             )}
 
@@ -503,6 +526,7 @@ export const App: React.FC = () => {
                 admin={activeAdmin}
                 onDeleteEntry={handleDeleteEntry}
                 onDeleteMultipleEntries={handleDeleteMultipleEntries}
+                onUpdateEntry={handleUpdateEntry}
               />
             )}
 
@@ -514,6 +538,7 @@ export const App: React.FC = () => {
                 onFilterChange={handleFilterChange}
                 onDeleteEntry={handleDeleteEntry}
                 onDeleteMultipleEntries={handleDeleteMultipleEntries}
+                onUpdateEntry={handleUpdateEntry}
               />
             )}
 

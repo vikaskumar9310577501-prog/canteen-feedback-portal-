@@ -68,8 +68,8 @@ export const FeedbackFlow: React.FC<Props> = ({
   onBackToDashboard,
   onOpenAdminLogin 
 }) => {
-  // Admin preview from dashboard can restart; public QR users stay on thank you
-  const allowRestart = Boolean(onBackToDashboard);
+  // Allow restart so subsequent employees can submit on kiosks or preview
+  const allowRestart = true;
 
   // Step 0: Language ... Step 10: Thank You
   const [currentStep, setCurrentStep] = useState<number>(() => (hasAlreadySubmitted() && !allowRestart ? 10 : 0));
@@ -114,11 +114,29 @@ export const FeedbackFlow: React.FC<Props> = ({
 
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [remark, setRemark] = useState<string>('');
+  const [satisfactionStatus, setSatisfactionStatus] = useState<'satisfied' | 'unsatisfied' | undefined>();
+  const [images, setImages] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const handleRatingSelect = (qKey: string, val: number) => {
-    setRatings((prev) => ({ ...prev, [qKey]: val }));
-    setCurrentStep((prev) => prev + 1);
+    setRatings((prev) => {
+      const next = { ...prev, [qKey]: val };
+      return next;
+    });
+    setCurrentStep((prev) => {
+      const nextStep = prev + 1;
+      // If advancing to OptionalStep (step 9), set initial satisfaction default if not set
+      if (nextStep === 9 && !satisfactionStatus) {
+        const taste = ratings['food_taste'] || 4;
+        const quality = ratings['food_quality'] || 4;
+        const staff = ratings['staff_behaviour'] || 4;
+        const hygiene = ratings['hygiene'] || 4;
+        const currOverall = qKey === 'overall_rating' ? val : (taste + quality + staff + hygiene) / 4;
+        setSatisfactionStatus(currOverall <= 2.5 ? 'unsatisfied' : 'satisfied');
+      }
+      return nextStep;
+    });
   };
 
   const handleSubmit = async () => {
@@ -133,6 +151,8 @@ export const FeedbackFlow: React.FC<Props> = ({
       ((taste + quality + staff + hygiene) / 4).toFixed(2)
     );
 
+    const finalOverall = ratings['overall_rating'] || calculatedOverall;
+    const finalSatisfaction = satisfactionStatus || (finalOverall <= 2.5 ? 'unsatisfied' : 'satisfied');
     const chosenPlantObj = (lockedPlant || plants.find(p => p.id === selectedPlant)) || plants[0];
 
     const payload: Omit<FeedbackEntry, 'id' | 'created_at'> = {
@@ -148,7 +168,11 @@ export const FeedbackFlow: React.FC<Props> = ({
       food_quality: quality,
       staff_behaviour: staff,
       hygiene: hygiene,
-      overall_rating: ratings['overall_rating'] || calculatedOverall,
+      overall_rating: finalOverall,
+      satisfaction_status: finalSatisfaction,
+      action_status: finalSatisfaction === 'unsatisfied' ? 'pending' : undefined,
+      images: images.length > 0 ? images : undefined,
+      video_url: videoUrl || undefined,
       remark: remark.trim() || undefined,
       employee_name: employeeName.trim() || undefined,
       employee_id: employeeId.trim() || undefined,
@@ -186,6 +210,9 @@ export const FeedbackFlow: React.FC<Props> = ({
     }
     setRatings({});
     setRemark('');
+    setSatisfactionStatus(undefined);
+    setImages([]);
+    setVideoUrl(undefined);
     setEmployeeName('');
     setEmployeeId('');
     setPhone('');
@@ -327,6 +354,12 @@ export const FeedbackFlow: React.FC<Props> = ({
       <OptionalStep
         remark={remark}
         onChangeRemark={setRemark}
+        satisfactionStatus={satisfactionStatus}
+        onChangeSatisfactionStatus={setSatisfactionStatus}
+        images={images}
+        onChangeImages={setImages}
+        videoUrl={videoUrl}
+        onChangeVideoUrl={setVideoUrl}
         onSubmit={handleSubmit}
         onBack={() => setCurrentStep(8)}
         isSubmitting={isSubmitting}

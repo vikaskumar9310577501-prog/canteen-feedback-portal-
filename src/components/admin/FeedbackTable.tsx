@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { 
   Search, Filter, Trash2, Eye, X, Star, ChevronLeft, ChevronRight, CheckSquare, Square, 
-  Lock, Calendar, CheckCircle2, AlertCircle, Clock, ChevronDown
+  Lock, Calendar, CheckCircle2, AlertCircle, Clock, ChevronDown, Camera, Video, Wrench, ShieldCheck
 } from 'lucide-react';
 import { FeedbackEntry, FeedbackFilterOptions, Plant, AdminProfile } from '../../types/database';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { DateRangePicker, DateRange } from '../common/DateRangePicker';
+import { FeedbackDetailModal } from './FeedbackDetailModal';
+import { ActionModal } from './ActionModal';
 
 interface Props {
   feedbacks: FeedbackEntry[];
@@ -17,6 +19,7 @@ interface Props {
   onFilterChange: (filters: FeedbackFilterOptions) => void;
   onDeleteEntry: (id: string) => void;
   onDeleteMultipleEntries: (ids: string[]) => void;
+  onUpdateEntry?: (updated: FeedbackEntry) => void;
   onTriggerExport?: (format: 'csv' | 'excel' | 'pdf') => void;
 }
 
@@ -27,6 +30,7 @@ export const FeedbackTable: React.FC<Props> = ({
   onFilterChange,
   onDeleteEntry,
   onDeleteMultipleEntries,
+  onUpdateEntry,
 }) => {
   const isItAdmin = !admin || admin.role === 'super_admin' || admin.role === 'it_admin';
   const { t } = useTranslation();
@@ -37,6 +41,7 @@ export const FeedbackTable: React.FC<Props> = ({
   const [endDate, setEndDate] = useState<string | undefined>();
   const [minRating, setMinRating] = useState<number>(0);
   const [detailEntry, setDetailEntry] = useState<FeedbackEntry | null>(null);
+  const [actionTarget, setActionTarget] = useState<FeedbackEntry | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -300,22 +305,59 @@ export const FeedbackTable: React.FC<Props> = ({
 
                       {/* Status / Rating Pill (Green / Red / Amber badge matching sample) */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
-                        {isUnsatisfied ? (
-                          <span className="px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
-                            <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
-                            <span>{f.overall_rating} ★ UNSATISFIED</span>
-                          </span>
-                        ) : isSatisfied ? (
-                          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>{f.overall_rating} ★ SATISFIED</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
-                            <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                            <span>{f.overall_rating} ★ AVERAGE</span>
-                          </span>
-                        )}
+                        <div className="space-y-1">
+                          {isUnsatisfied ? (
+                            <span className="px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
+                              <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                              <span>{f.overall_rating} ★ UNSATISFIED</span>
+                            </span>
+                          ) : isSatisfied ? (
+                            <span className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>{f.overall_rating} ★ SATISFIED</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-extrabold text-[11px] inline-flex items-center gap-1 shadow-2xs">
+                              <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                              <span>{f.overall_rating} ★ AVERAGE</span>
+                            </span>
+                          )}
+
+                          {/* Action Status Badge for Complaints */}
+                          {(isUnsatisfied || f.satisfaction_status === 'unsatisfied' || f.action_status) && (
+                            <div className="flex items-center gap-1">
+                              {f.action_status === 'resolved' ? (
+                                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-black inline-flex items-center gap-1 border border-emerald-200">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                  <span>Action Resolved</span>
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 text-[10px] font-black inline-flex items-center gap-1 border border-amber-300 animate-pulse">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Action Pending</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Media attachments badge */}
+                          {((f.images && f.images.length > 0) || f.video_url) && (
+                            <div className="flex items-center gap-1 pt-0.5">
+                              {f.images && f.images.length > 0 && (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[9px] font-bold inline-flex items-center gap-0.5">
+                                  <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>{f.images.length} photo{f.images.length > 1 ? 's' : ''}</span>
+                                </span>
+                              )}
+                              {f.video_url && (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[9px] font-bold inline-flex items-center gap-0.5">
+                                  <Video className="w-2.5 h-2.5 text-blue-600" />
+                                  <span>Video</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Suggestion / Remark */}
@@ -341,6 +383,23 @@ export const FeedbackTable: React.FC<Props> = ({
                       {/* Actions (Clean rounded bordered buttons) */}
                       <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* If grievance/unsatisfied, show Take Action button */}
+                          {(isUnsatisfied || f.satisfaction_status === 'unsatisfied' || f.action_status) && (
+                            <button
+                              type="button"
+                              onClick={() => setActionTarget(f)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs ${
+                                f.action_status === 'resolved'
+                                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20'
+                              }`}
+                              title={f.action_status === 'resolved' ? 'Edit Corrective Action' : 'Take Corrective Action'}
+                            >
+                              <Wrench className="w-3 h-3" />
+                              <span>{f.action_status === 'resolved' ? 'Action' : 'Take Action'}</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => setDetailEntry(f)}
                             className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
@@ -392,70 +451,29 @@ export const FeedbackTable: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Details Modal */}
-      <AnimatePresence>
-        {detailEntry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
-            onClick={() => setDetailEntry(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-extrabold text-slate-900 text-base">Feedback Entry Detail</h3>
-                <button onClick={() => setDetailEntry(null)} className="p-1 text-slate-400 hover:text-slate-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* Modern Details Modal with Full Media & Action Redressal */}
+      <FeedbackDetailModal
+        isOpen={Boolean(detailEntry)}
+        feedback={detailEntry}
+        isItAdmin={isItAdmin}
+        adminName={admin?.full_name || 'Canteen Admin'}
+        onClose={() => setDetailEntry(null)}
+        onActionSaved={(updated) => {
+          setDetailEntry(updated);
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
 
-              <div className="space-y-3 text-xs">
-                {isItAdmin ? (
-                  <div className="p-3 bg-purple-50 rounded-xl space-y-1 border border-purple-200">
-                    <div className="text-[10px] font-black text-purple-900 uppercase">Submitter Identity (IT Admin Access)</div>
-                    <div className="font-bold text-slate-900">{detailEntry.employee_name || 'Anonymous'}</div>
-                    <div className="text-slate-600 font-mono">ID: {detailEntry.employee_id || 'N/A'}</div>
-                    <div className="text-slate-600 font-mono">Email: {detailEntry.email || 'N/A'}</div>
-                    {detailEntry.phone && <div className="text-slate-600 font-mono">Phone: {detailEntry.phone}</div>}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">
-                    🔒 Employee identity is confidential for HR Admin.
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 text-slate-700 font-semibold">
-                  <div className="p-2.5 bg-slate-50 rounded-xl">Plant: {detailEntry.plant_display_name || detailEntry.plant_name}</div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl">Meal: {detailEntry.meal_type}</div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl">Shift: {detailEntry.shift}</div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl">Overall: {detailEntry.overall_rating} ★</div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl space-y-1">
-                  <div className="font-bold text-slate-800">Parameters breakdown:</div>
-                  <div>Food Taste: {detailEntry.food_taste} ★</div>
-                  <div>Food Quality: {detailEntry.food_quality} ★</div>
-                  <div>Staff Behaviour: {detailEntry.staff_behaviour} ★</div>
-                  <div>Hygiene: {detailEntry.hygiene} ★</div>
-                </div>
-
-                {detailEntry.remark && (
-                  <div className="p-3 bg-emerald-50 text-emerald-900 rounded-xl italic font-medium">
-                    "{detailEntry.remark}"
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Quick Action Recording Modal */}
+      <ActionModal
+        isOpen={Boolean(actionTarget)}
+        feedback={actionTarget}
+        adminName={admin?.full_name || 'Canteen Admin'}
+        onClose={() => setActionTarget(null)}
+        onActionSaved={(updated) => {
+          if (onUpdateEntry) onUpdateEntry(updated);
+        }}
+      />
 
       {/* Confirm Deletion Modals */}
       <ConfirmModal

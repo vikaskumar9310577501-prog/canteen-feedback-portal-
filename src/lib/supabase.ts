@@ -446,6 +446,26 @@ const applyFeedbackFilters = (
       }
     }
 
+    if (filters.satisfactionStatus && filters.satisfactionStatus !== 'all') {
+      if (filters.satisfactionStatus === 'unsatisfied') {
+        const isUnsatisfied = item.satisfaction_status === 'unsatisfied' || item.overall_rating <= 2;
+        if (!isUnsatisfied) return false;
+      } else if (filters.satisfactionStatus === 'satisfied') {
+        const isSatisfied = item.satisfaction_status === 'satisfied' || (item.overall_rating >= 3 && item.satisfaction_status !== 'unsatisfied');
+        if (!isSatisfied) return false;
+      }
+    }
+
+    if (filters.actionStatus && filters.actionStatus !== 'all') {
+      if (filters.actionStatus === 'resolved') {
+        const isResolved = item.action_status === 'resolved' || Boolean(item.action_taken && item.action_taken.trim());
+        if (!isResolved) return false;
+      } else if (filters.actionStatus === 'pending') {
+        const isPending = (item.satisfaction_status === 'unsatisfied' || item.overall_rating <= 2) && item.action_status !== 'resolved' && !item.action_taken;
+        if (!isPending) return false;
+      }
+    }
+
     return true;
   });
 };
@@ -489,7 +509,13 @@ const migrateLocalFeedbacksToApi = async (
   localList: FeedbackEntry[]
 ): Promise<FeedbackEntry[]> => {
   const apiIds = new Set(apiList.map((f) => f.id));
-  const orphans = localList.filter((f) => f?.id && !apiIds.has(f.id) && !String(f.id).startsWith('fb-mock-'));
+  const orphans = localList.filter((f) => 
+    f?.id && 
+    !apiIds.has(f.id) && 
+    !String(f.id).startsWith('fb-mock-') && 
+    !String(f.id).startsWith('fb-202608') &&
+    !(f.created_at && String(f.created_at).startsWith('2026-08'))
+  );
 
   if (orphans.length === 0) return apiList;
 
@@ -513,10 +539,12 @@ export const fetchFeedbacks = async (
   options?: { migrateLocal?: boolean }
 ): Promise<FeedbackEntry[]> => {
   let localList = getLocalData<FeedbackEntry[]>(STORAGE_KEYS.FEEDBACKS, []);
-  if (localList.length === 0) {
-    localList = INITIAL_FEEDBACKS;
-    setLocalData(STORAGE_KEYS.FEEDBACKS, INITIAL_FEEDBACKS);
-  }
+  // Clean out any legacy August mock items from local storage
+  localList = localList.filter(f => 
+    !String(f.id).startsWith('fb-202608') && 
+    !(f.created_at && String(f.created_at).startsWith('2026-08'))
+  );
+  setLocalData(STORAGE_KEYS.FEEDBACKS, localList);
 
   const shouldMigrate = options?.migrateLocal === true;
 
@@ -674,6 +702,52 @@ export const setAdminSession = (admin: AdminProfile | null): void => {
   setLocalData(STORAGE_KEYS.CURRENT_ADMIN, payload);
 };
 
+export const updateFeedbackAction = async (
+  id: string,
+  actionData: {
+    action_status: 'pending' | 'resolved';
+    action_taken: string;
+    action_by: string;
+    action_at: string;
+    action_evidence_url?: string;
+  }
+): Promise<FeedbackEntry | null> => {
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, updates: actionData }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const updated = data?.feedback as FeedbackEntry;
+      if (updated) {
+        const existing = getLocalData<FeedbackEntry[]>(STORAGE_KEYS.FEEDBACKS, []);
+        const next = existing.map(f => f.id === id ? updated : f);
+        setLocalData(STORAGE_KEYS.FEEDBACKS, next);
+        notifyFeedbackSubmitted(updated);
+        return updated;
+      }
+    }
+  } catch (e) {
+    console.warn('API updateFeedbackAction error', e);
+  }
+
+  // Fallback update in local storage
+  const existing = getLocalData<FeedbackEntry[]>(STORAGE_KEYS.FEEDBACKS, []);
+  let updatedEntry: FeedbackEntry | null = null;
+  const next = existing.map(f => {
+    if (f.id === id) {
+      updatedEntry = { ...f, ...actionData };
+      return updatedEntry;
+    }
+    return f;
+  });
+  setLocalData(STORAGE_KEYS.FEEDBACKS, next);
+  if (updatedEntry) notifyFeedbackSubmitted(updatedEntry);
+  return updatedEntry;
+};
+
 export const calculateDashboardStats = (feedbacks: FeedbackEntry[]): DashboardStats => {
   if (!feedbacks || feedbacks.length === 0) {
     return {
@@ -685,11 +759,24 @@ export const calculateDashboardStats = (feedbacks: FeedbackEntry[]): DashboardSt
       poorCount: 0,
       totalRemarks: 0,
       satisfactionScore: 0,
+      actionsTakenCount: 0,
+      pendingActionsCount: 0,
     };
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayFeedbacks = feedbacks.filter((f) => f.created_at.startsWith(todayStr));
+  // Compute Indian Standard Time (IST) date string for accurate morning/evening alignment
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const todayFeedbacks = feedbacks.filter((f) => {
+    const itemDate = new Date(f.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    return itemDate === todayStr;
+  });
+
+  const nowMs = Date.now();
+  const sevenDaysAgoMs = nowMs - (7 * 86400000);
+  const thirtyDaysAgoMs = nowMs - (30 * 86400000);
+
+  const weeklyFeedbacks = feedbacks.filter(f => new Date(f.created_at).getTime() >= sevenDaysAgoMs);
+  const monthlyFeedbacks = feedbacks.filter(f => new Date(f.created_at).getTime() >= thirtyDaysAgoMs);
 
   const totalRatingSum = feedbacks.reduce((acc, curr) => acc + curr.overall_rating, 0);
   const avgRating = Number((totalRatingSum / feedbacks.length).toFixed(1));
@@ -700,15 +787,27 @@ export const calculateDashboardStats = (feedbacks: FeedbackEntry[]): DashboardSt
   const poorCount = feedbacks.filter((f) => f.overall_rating <= 2).length;
   const remarksCount = feedbacks.filter((f) => f.remark && f.remark.trim().length > 0).length;
 
+  const actionsTakenCount = feedbacks.filter((f) => 
+    f.action_status === 'resolved' || Boolean(f.action_taken && f.action_taken.trim())
+  ).length;
+
+  const pendingActionsCount = feedbacks.filter((f) => 
+    (f.satisfaction_status === 'unsatisfied' || f.overall_rating <= 2) && 
+    f.action_status !== 'resolved' && 
+    !Boolean(f.action_taken && f.action_taken.trim())
+  ).length;
+
   return {
     todayCount: todayFeedbacks.length,
-    weeklyCount: feedbacks.length,
-    monthlyCount: feedbacks.length,
+    weeklyCount: weeklyFeedbacks.length,
+    monthlyCount: monthlyFeedbacks.length,
     averageRating: avgRating,
     happyPercentage: happyPct,
     poorCount: poorCount,
     totalRemarks: remarksCount,
     satisfactionScore: happyPct,
+    actionsTakenCount,
+    pendingActionsCount,
   };
 };
 

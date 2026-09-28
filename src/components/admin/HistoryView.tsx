@@ -23,6 +23,7 @@ import {
 import { FeedbackEntry, Plant, AdminProfile } from '../../types/database';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { DateRangePicker, DateRange, isDateInRange } from '../common/DateRangePicker';
+import { FeedbackDetailModal } from './FeedbackDetailModal';
 
 interface Props {
   feedbacks: FeedbackEntry[];
@@ -461,154 +462,14 @@ export const HistoryView: React.FC<Props> = ({
       )}
 
       {/* Detailed Modal View */}
-      <AnimatePresence>
-        {activeDetailEntry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
-            onClick={() => setActiveDetailEntry(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl max-w-lg w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden my-auto"
-            >
-              {/* Sticky Top Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
-                    <MessageSquare className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-black text-slate-900 text-base leading-tight truncate">
-                      Historical Feedback Entry
-                    </h3>
-                    <div className="text-[11px] font-mono font-bold text-slate-500 flex items-center gap-1.5 mt-0.5">
-                      <span className="text-purple-800 font-extrabold">{formatTicketNumber(activeDetailEntry.id)}</span>
-                      <span>•</span>
-                      <span>{new Date(activeDetailEntry.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setActiveDetailEntry(null)} 
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Scrollable Modal Body */}
-              <div className="p-5 overflow-y-auto space-y-4 text-xs">
-                {/* Overall Score */}
-                <div className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-200/80">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-700 text-xs uppercase tracking-wider">Overall Score</span>
-                    <span className={`px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1 shadow-2xs ${
-                      activeDetailEntry.overall_rating >= 4 
-                        ? 'bg-emerald-500 text-white' 
-                        : activeDetailEntry.overall_rating <= 2.5 
-                          ? 'bg-rose-600 text-white' 
-                          : 'bg-amber-500 text-white'
-                    }`}>
-                      {activeDetailEntry.overall_rating} ★ Overall
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-800 pt-1">
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200/70 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Manufacturing Plant:</span>
-                      <span className="text-emerald-700 truncate block mt-0.5">{activeDetailEntry.plant_display_name || activeDetailEntry.plant_name}</span>
-                    </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200/70 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Meal & Shift:</span>
-                      <span className="truncate block mt-0.5">{activeDetailEntry.meal_type} ({activeDetailEntry.shift})</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4 Parameters */}
-                <div className="p-4 bg-slate-50 rounded-2xl space-y-2.5 border border-slate-200/80">
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">4 Core Parameters Score:</h4>
-                  <div className="grid grid-cols-2 gap-2.5 text-xs">
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🍲 Food Taste:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.food_taste} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🍱 Food Quality:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.food_quality} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>🤝 Staff Behavior:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.staff_behaviour} ★</strong>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 font-semibold shadow-2xs">
-                      <span>✨ Hygiene:</span>
-                      <strong className="text-emerald-700 font-black">{activeDetailEntry.hygiene} ★</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Remark */}
-                {activeDetailEntry.remark ? (
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Written Remark / Suggestion:</span>
-                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 text-slate-900 rounded-2xl italic text-xs leading-relaxed border border-emerald-200 font-medium shadow-2xs">
-                      "{activeDetailEntry.remark}"
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
-                    No written remark provided
-                  </div>
-                )}
-
-                {/* Submitter Full Identity (IT Admin Access) */}
-                <div className="p-4 bg-purple-50/90 rounded-2xl space-y-2.5 border border-purple-200">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-purple-700" />
-                      <span>Employee Submitter Identity (IT Admin Archive)</span>
-                    </h4>
-                    <span className="text-[9px] font-black px-2 py-0.5 bg-purple-200 text-purple-900 rounded-full uppercase">
-                      IT Admin Only
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Employee Name:</span>
-                      <strong className="text-slate-900 truncate block mt-0.5">{activeDetailEntry.employee_name || 'Anonymous'}</strong>
-                    </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Employee ID:</span>
-                      <strong className="text-purple-800 font-mono block mt-0.5">{activeDetailEntry.employee_id || 'N/A'}</strong>
-                    </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Email Address:</span>
-                      <span className="text-slate-700 font-mono text-[11px] truncate block mt-0.5">{activeDetailEntry.email || 'N/A'}</span>
-                    </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Contact Phone:</span>
-                      <span className="text-slate-700 font-mono text-[11px] block mt-0.5">{activeDetailEntry.phone || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 font-mono text-center shrink-0">
-                Submitted on {new Date(activeDetailEntry.created_at).toLocaleString()}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Modern Detailed Feedback Modal with Photos & Video */}
+      <FeedbackDetailModal
+        isOpen={Boolean(activeDetailEntry)}
+        feedback={activeDetailEntry}
+        isItAdmin={isItAdmin}
+        adminName={admin?.full_name || 'Canteen Admin'}
+        onClose={() => setActiveDetailEntry(null)}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

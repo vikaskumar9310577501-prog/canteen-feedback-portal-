@@ -86,22 +86,49 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     setIsOpen(false);
   };
 
+  const toYMD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = new Date();
+  const todayStr = toYMD(today);
+
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = toYMD(yesterday);
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(today.getDate() - 6);
+  const sevenDaysAgoStr = toYMD(sevenDaysAgo);
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const startOfMonthStr = toYMD(startOfMonth);
+
+  const last30Days = new Date();
+  last30Days.setDate(today.getDate() - 29);
+  const last30DaysStr = toYMD(last30Days);
+
   const isFiltered = Boolean(startDate || endDate);
 
   const getDisplayText = () => {
     if (!startDate && !endDate) return 'Filter by Date';
     if (startDate && endDate) {
       if (startDate === endDate) {
-        if (startDate === '2026-08-31') return '31 Aug (Latest)';
-        if (startDate === '2026-08-26') return '26 Aug 2026';
-        if (startDate === '2026-08-25') return '25 Aug 2026';
-        if (startDate === '2026-08-24') return '24 Aug 2026';
-        if (startDate === '2026-08-22') return '22 Aug 2026';
-        if (startDate === '2026-08-21') return '21 Aug 2026';
+        if (startDate === todayStr) return 'Today';
+        if (startDate === yesterdayStr) return 'Yesterday';
         return formatDateDisplay(startDate);
       }
-      if (startDate === '2026-08-01' && endDate === '2026-08-31') {
-        return 'Full August 2026';
+      if (startDate === sevenDaysAgoStr && endDate === todayStr) {
+        return 'Last 7 Days';
+      }
+      if (startDate === startOfMonthStr && endDate === todayStr) {
+        return 'This Month';
+      }
+      if (startDate === last30DaysStr && endDate === todayStr) {
+        return 'Last 30 Days';
       }
       return `${formatDateDisplay(startDate)} — ${formatDateDisplay(endDate)}`;
     }
@@ -110,13 +137,12 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     return 'Filter by Date';
   };
 
-  const quickDates = [
-    { label: '31 Aug (Latest Day)', value: '2026-08-31', count: 4 },
-    { label: '26 Aug 2026', value: '2026-08-26', count: 4 },
-    { label: '25 Aug 2026', value: '2026-08-25', count: 4 },
-    { label: '24 Aug 2026', value: '2026-08-24', count: 4 },
-    { label: '22 Aug 2026', value: '2026-08-22', count: 2 },
-    { label: '21 Aug 2026', value: '2026-08-21', count: 2 },
+  const quickPresets = [
+    { label: 'Today', start: todayStr, end: todayStr },
+    { label: 'Yesterday', start: yesterdayStr, end: yesterdayStr },
+    { label: 'Last 7 Days', start: sevenDaysAgoStr, end: todayStr },
+    { label: 'This Month', start: startOfMonthStr, end: todayStr },
+    { label: 'Last 30 Days', start: last30DaysStr, end: todayStr },
   ];
 
   return (
@@ -169,7 +195,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Filter Feedbacks by Date</h4>
-                    <p className="text-[10px] text-slate-500 font-medium">Click any date for instant 1-click filter</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Click any preset for instant filter</p>
                   </div>
                 </div>
                 <button
@@ -181,54 +207,44 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 </button>
               </div>
 
-              {/* 1-Click Exact Working Date Buttons */}
+              {/* 1-Click Quick Preset Buttons */}
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-emerald-600" />
-                  <span>Exact Dates (One-Click)</span>
+                  <span>Quick Presets</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {quickDates.map((qd) => {
-                    const isSelected = startDate === qd.value && endDate === qd.value;
+                  {quickPresets.map((qp) => {
+                    const isSelected = startDate === qp.start && endDate === qp.end;
                     return (
                       <button
-                        key={qd.value}
+                        key={qp.label}
                         type="button"
-                        onClick={() => handleSelectExactDate(qd.value)}
+                        onClick={() => handleSelectRange(qp.start, qp.end)}
                         className={`px-2.5 py-2 text-left rounded-xl text-[11px] font-bold transition-all border cursor-pointer flex items-center justify-between ${
                           isSelected
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-400 ring-1 ring-emerald-500/30'
                             : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
-                        <span>{qd.label}</span>
+                        <span>{qp.label}</span>
                         {isSelected && <Check className="w-3 h-3 text-emerald-600 shrink-0" />}
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => handleClear()}
+                    className={`px-2.5 py-2 text-left rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center justify-between ${
+                      !startDate && !endDate
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-400 ring-1 ring-emerald-500/30'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
+                    }`}
+                  >
+                    <span>All Dates</span>
+                    {!startDate && !endDate && <Check className="w-3 h-3 text-emerald-600 shrink-0" />}
+                  </button>
                 </div>
-              </div>
-
-              {/* Full Month & Reset Preset Buttons */}
-              <div className="grid grid-cols-2 gap-1.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleSelectRange('2026-08-01', '2026-08-31')}
-                  className={`px-2.5 py-1.5 text-center rounded-xl text-[11px] font-bold transition-all border cursor-pointer ${
-                    startDate === '2026-08-01' && endDate === '2026-08-31'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
-                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  Full August 2026 (All 20)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleClear()}
-                  className="px-2.5 py-1.5 text-center rounded-xl text-[11px] font-bold border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
-                >
-                  Clear / Show All
-                </button>
               </div>
 
               {/* Custom Date Inputs (Instant Change) */}
@@ -242,8 +258,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                     <input
                       type="date"
                       value={tempStart}
-                      min="2026-08-01"
-                      max="2026-08-31"
                       onChange={(e) => {
                         const val = e.target.value;
                         setTempStart(val);
@@ -257,8 +271,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                     <input
                       type="date"
                       value={tempEnd}
-                      min="2026-08-01"
-                      max="2026-08-31"
                       onChange={(e) => {
                         const val = e.target.value;
                         setTempEnd(val);
