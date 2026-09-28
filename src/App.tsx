@@ -107,6 +107,22 @@ export const App: React.FC = () => {
     activeFiltersRef.current = activeFilters;
   }, [activeFilters]);
 
+  // Background check for daily digest dispatch (ensures email triggers even if external cron is delayed)
+  useEffect(() => {
+    if (appMode === 'admin_dashboard') {
+      const pingDigest = async () => {
+        try {
+          await fetch('/api/daily-digest');
+        } catch {
+          // silent background ping
+        }
+      };
+      pingDigest();
+      const interval = setInterval(pingDigest, 10 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [appMode]);
+
   // Browser Desktop Tab Notification Permission (admin only — mobile kiosk cannot use Notification API)
   const requestNotificationPermission = () => {
     if (appModeRef.current === 'kiosk') return;

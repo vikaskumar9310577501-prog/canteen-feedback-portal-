@@ -387,10 +387,18 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // If running automatically via cron, verify scheduled dispatch time
-    if (!forceSend && !isTestMode) {
-      const scheduledHour = parseInt((digestConfig.scheduled_time || '20:00').split(':')[0], 10) || 20;
-      if (currentHour < scheduledHour) {
+    const isVercelCron = req.headers['x-vercel-cron'] === '1' || 
+                         (typeof req.headers['user-agent'] === 'string' && req.headers['user-agent'].includes('vercel-cron'));
+
+    // If running automatically via cron, verify scheduled dispatch time (unless triggered by Vercel's automated cron)
+    if (!forceSend && !isTestMode && !isVercelCron) {
+      const scheduledParts = (digestConfig.scheduled_time || '20:00').split(':');
+      const scheduledHour = parseInt(scheduledParts[0], 10) || 20;
+      const scheduledMin = parseInt(scheduledParts[1], 10) || 0;
+      const currentTotalMin = currentHour * 60 + currentMinute;
+      const scheduledTotalMin = scheduledHour * 60 + scheduledMin;
+
+      if (currentTotalMin < scheduledTotalMin) {
         return res.status(200).json({
           ok: true,
           message: `Current IST time (${currentTimeStr}) is before scheduled dispatch time (${digestConfig.scheduled_time || '20:00'}). Will trigger at scheduled time.`,
@@ -560,9 +568,9 @@ export default async function handler(req: any, res: any) {
           html,
         });
 
-        // Mark as sent today with 48 hours expiration
-        if (!isTestMode) {
-          await redis.set(sentKey, new Date().toISOString(), { ex: 172800 });
+        // Mark as sent today with 24 hours expiration (only for real automated cron/digest runs, never for test or force runs)
+        if (!isTestMode && !forceSend) {
+          await redis.set(sentKey, new Date().toISOString(), { ex: 86400 });
         }
 
         console.log(`[daily-digest] Sent email for ${plantDisplayName} to:`, toEmails);
