@@ -1562,6 +1562,98 @@ export const SettingsPage: React.FC<Props> = ({
                       Please share the action plan and improvement measures at the earliest so that employee concerns can be addressed effectively.
                     </p>
                   </div>
+
+                  {/* Top 5 Unsatisfied Complaints Section */}
+                  <div className="pt-3 border-t-2 border-dashed border-rose-200 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-black text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Top 5 Unsatisfied Employee Complaints (Action Required)</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Priority High
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {[
+                        {
+                          id: 1,
+                          meal: 'Lunch',
+                          time: '01:26 PM',
+                          rating: 1,
+                          remark: 'A cockroach has appeared in the food',
+                          tags: 'Hygiene & Food Safety',
+                          status: 'Action Pending',
+                        },
+                        {
+                          id: 2,
+                          meal: 'Lunch',
+                          time: '01:15 PM',
+                          rating: 1,
+                          remark: 'खाने में कॉकरोच निकला है, दाल भी बहुत ठंडी थी',
+                          tags: 'Hygiene & Temperature',
+                          status: 'Action Pending',
+                        },
+                        {
+                          id: 3,
+                          meal: 'Lunch',
+                          time: '01:05 PM',
+                          rating: 1,
+                          remark: 'One insect found in vegetable gravy, kitchen inspection needed urgently',
+                          tags: 'Hygiene Alert',
+                          status: 'Action Pending',
+                        },
+                        {
+                          id: 4,
+                          meal: 'Dinner',
+                          time: '08:45 PM',
+                          rating: 2,
+                          remark: 'Roti was uncooked and rubbery, vegetables had too much oil',
+                          tags: 'Food Quality',
+                          status: 'Action Pending',
+                        },
+                        {
+                          id: 5,
+                          meal: 'Lunch',
+                          time: '12:50 PM',
+                          rating: 2,
+                          remark: 'Very slow refill at service counter causing long queues',
+                          tags: 'Service Speed',
+                          status: 'Action Pending',
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded-xl border border-rose-200 bg-rose-50/60 text-slate-800 space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 text-[10px] font-black flex items-center justify-center shrink-0">
+                                {item.id}
+                              </span>
+                              <span className="font-extrabold text-[11px] text-slate-900">
+                                {item.meal} ({item.time})
+                              </span>
+                              <span className="text-amber-600 font-black text-xs">
+                                ★ {item.rating}/5
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                              {item.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-700 font-semibold pl-5 italic">
+                            "{item.remark}"
+                          </p>
+                          <div className="pl-5 text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                            <span>Key Concern:</span>
+                            <span className="text-rose-700 font-semibold">{item.tags}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 

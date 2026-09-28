@@ -110,6 +110,7 @@ function buildPlantExecutiveEmailHtml(params: {
   unsatisfiedCount: number;
   unsatisfiedPct: number;
   isHighUnsatisfied: boolean;
+  topUnsatisfied?: any[];
 }): string {
   const {
     plantName,
@@ -122,6 +123,7 @@ function buildPlantExecutiveEmailHtml(params: {
     unsatisfiedCount,
     unsatisfiedPct,
     isHighUnsatisfied,
+    topUnsatisfied = [],
   } = params;
 
   // Format unit tag: e.g. (NGM 4020) BHIWADI or (PGTL 2040) BHIWADI
@@ -238,6 +240,83 @@ function buildPlantExecutiveEmailHtml(params: {
           </p>
         `}
       </div>
+
+      ${topUnsatisfied && topUnsatisfied.length > 0 ? `
+        <!-- Top Unsatisfied Complaints Section -->
+        <div style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed #FECACA;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+            <tr>
+              <td align="left" style="font-family: Arial, sans-serif; font-size: 13px; font-weight: 900; color: #991B1B; text-transform: uppercase; letter-spacing: 0.5px;">
+                ⚠️ Top ${topUnsatisfied.length} Unsatisfied Employee Complaints (Action Required)
+              </td>
+              <td align="right">
+                <span style="font-family: Arial, sans-serif; font-size: 10px; font-weight: 800; color: #991B1B; background-color: #FEE2E2; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #FECACA;">
+                  Priority High
+                </span>
+              </td>
+            </tr>
+          </table>
+
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; border-spacing: 0 8px; font-family: Arial, sans-serif;">
+            ${topUnsatisfied.map((item: any, idx: number) => {
+              const timeFormatted = item.created_at ? new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+              const rating = item.overall_rating || 1;
+              const remark = item.remark?.trim() || 'Unsatisfactory experience reported';
+              const meal = item.meal_type || 'Meal';
+              const isResolved = item.action_status === 'resolved';
+              const statusLabel = isResolved ? 'Resolved' : 'Action Pending';
+              const statusBg = isResolved ? '#DCFCE7' : '#FEE2E2';
+              const statusColor = isResolved ? '#166534' : '#991B1B';
+
+              const subScores = [];
+              if (item.food_taste) subScores.push(`Taste: ${item.food_taste}★`);
+              if (item.food_quality) subScores.push(`Quality: ${item.food_quality}★`);
+              if (item.hygiene) subScores.push(`Hygiene: ${item.hygiene}★`);
+              if (item.staff_behaviour) subScores.push(`Staff: ${item.staff_behaviour}★`);
+
+              return `
+                <tr>
+                  <td style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px 14px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="left" style="font-size: 12px; font-weight: 800; color: #0F172A;">
+                          <span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; background-color: #FCA5A5; color: #7F1D1D; text-align: center; border-radius: 50%; font-size: 11px; font-weight: 900; margin-right: 6px;">${idx + 1}</span>
+                          <strong>${meal}</strong> ${timeFormatted ? `(${timeFormatted})` : ''} — 
+                          <span style="color: #D97706; font-weight: 800;">★ ${rating}/5</span>
+                        </td>
+                        <td align="right">
+                          <span style="background-color: ${statusBg}; color: ${statusColor}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px; text-transform: uppercase;">
+                            ${statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colspan="2" style="padding-top: 8px; font-size: 12px; color: #334155; line-height: 1.5; font-style: italic;">
+                          "${remark}"
+                        </td>
+                      </tr>
+                      ${subScores.length > 0 ? `
+                        <tr>
+                          <td colspan="2" style="padding-top: 6px; font-size: 10px; color: #64748B; font-weight: 700;">
+                            Parameters: ${subScores.join(' • ')}
+                          </td>
+                        </tr>
+                      ` : ''}
+                      ${item.action_taken ? `
+                        <tr>
+                          <td colspan="2" style="padding-top: 6px; font-size: 11px; color: #166534; font-weight: 700;">
+                            Corrective Action: ${item.action_taken}
+                          </td>
+                        </tr>
+                      ` : ''}
+                    </table>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </table>
+        </div>
+      ` : ''}
 
     </div>
 
@@ -428,6 +507,20 @@ export default async function handler(req: any, res: any) {
 
       const plantDisplayName = plant.display_name || `${plant.location} — ${plant.name} (${plant.code})`;
 
+      // Extract Top 5 Unsatisfied Feedbacks (sorted by priority: lowest rating, remarks, newest)
+      const topUnsatisfied = plantFeedbacks
+        .filter((f) => f.satisfaction_status === 'unsatisfied' || (Number(f.overall_rating) || 0) <= 2)
+        .sort((a, b) => {
+          const rA = Number(a.overall_rating) || 0;
+          const rB = Number(b.overall_rating) || 0;
+          if (rA !== rB) return rA - rB;
+          const remA = a.remark?.trim() ? 1 : 0;
+          const remB = b.remark?.trim() ? 1 : 0;
+          if (remA !== remB) return remB - remA;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })
+        .slice(0, 5);
+
       const html = buildPlantExecutiveEmailHtml({
         plantName: plantDisplayName,
         plantCode: plant.code,
@@ -439,6 +532,7 @@ export default async function handler(req: any, res: any) {
         unsatisfiedCount,
         unsatisfiedPct,
         isHighUnsatisfied,
+        topUnsatisfied,
       });
 
       const subject = totalCount === 0
