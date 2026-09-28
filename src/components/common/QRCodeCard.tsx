@@ -393,36 +393,39 @@ export const QRCodeCard: React.FC<Props> = ({
     <>
       <div 
         onClick={() => setIsModalOpen(true)}
-        className={`relative overflow-hidden rounded-2xl p-1.5 h-[84px] w-full flex items-center justify-between gap-2.5 cursor-pointer transition-all duration-300 group border border-slate-200/90 bg-white shadow-2xs hover:shadow-md hover:border-emerald-400 ${className}`}
+        className={`relative overflow-hidden rounded-2xl p-2.5 h-[84px] w-full flex flex-col justify-between cursor-pointer transition-all duration-300 group border border-emerald-200/90 bg-gradient-to-b from-[#f0fdf4] to-[#e6fcf0] shadow-2xs hover:shadow-md hover:border-emerald-400 ${className}`}
         title="Click to view, generate & print Plant QR Codes"
       >
-        <div className="flex items-center gap-2.5 pl-1.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-105 transition-transform">
-            <QrCode className="w-5 h-5" />
-          </div>
-
-          <div className="text-left">
-            <div className="text-[10px] font-black text-emerald-700 uppercase tracking-wider flex items-center gap-1">
-              <span>{matchedFilterPlant ? `Plant ${matchedFilterPlant.code} QR` : 'Canteen QR'}</span>
-              {matchedFilterPlant && <Lock className="w-2.5 h-2.5 text-emerald-600" />}
-            </div>
-            <div className="text-xs font-black text-slate-800 leading-tight">
-              {matchedFilterPlant ? matchedFilterPlant.name : 'Plant QR Code'}
-            </div>
-            <div className="text-[9px] text-slate-400 font-semibold">
-              Click to generate & print
-            </div>
+        {/* Top Row: Title & Action Icon */}
+        <div className="flex items-center justify-between w-full">
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-950 truncate">
+            {matchedFilterPlant ? `PLANT ${matchedFilterPlant.code}` : 'CANTEEN QR'}
+          </span>
+          <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
+            <QrCode className="w-3.5 h-3.5" />
           </div>
         </div>
 
-        <div className="relative h-full w-[70px] flex items-center justify-center shrink-0">
-          <img
-            src={qrImageUrl}
-            alt="Canteen Feedback QR"
-            className="h-full w-auto object-contain rounded-xl p-0.5 transition-transform duration-200 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-            <Download className="w-4 h-4 text-white" />
+        {/* Bottom Row: Action Label + Mini QR Code Thumbnail */}
+        <div className="flex items-center justify-between gap-1 w-full mt-auto">
+          <div className="min-w-0 pr-1">
+            <div className="text-[11px] font-black text-emerald-950 leading-none truncate">
+              Scan / Print
+            </div>
+            <p className="text-[9px] font-bold text-emerald-700 mt-0.5 leading-tight truncate">
+              Get Standee
+            </p>
+          </div>
+
+          <div className="relative w-8 h-8 rounded-lg bg-white border border-emerald-200/90 p-0.5 shrink-0 flex items-center justify-center shadow-2xs group-hover:border-emerald-500 overflow-hidden">
+            <img
+              src={qrImageUrl}
+              alt="QR"
+              className="w-full h-full object-contain"
+            />
+            <div className="absolute inset-0 bg-emerald-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Printer className="w-3 h-3 text-white" />
+            </div>
           </div>
         </div>
       </div>
