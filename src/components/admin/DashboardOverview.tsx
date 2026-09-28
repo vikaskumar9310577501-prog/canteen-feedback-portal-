@@ -10,7 +10,7 @@ import {
   MessageSquare, Star, Smile, AlertCircle, Sparkles, TrendingUp, Filter, RotateCcw,
   Utensils, Sun, Moon, X, MessageSquareText, Coffee, ThumbsUp,
   Clock, Award, Flame, ShieldCheck, HeartHandshake, ChevronRight, PieChart, Check,
-  Camera, Video, Wrench, FileCheck, CheckCircle2
+  Camera, Video, Wrench, FileCheck, CheckCircle2, ChevronLeft
 } from 'lucide-react';
 import { DashboardStats, FeedbackEntry, Plant } from '../../types/database';
 import { calculateDashboardStats } from '../../lib/supabase';
@@ -66,6 +66,8 @@ export const DashboardOverview: React.FC<Props> = ({
   const [kpiPortalEl, setKpiPortalEl] = useState<HTMLElement | null>(null);
   const [activeDetailEntry, setActiveDetailEntry] = useState<FeedbackEntry | null>(null);
   const [actionTarget, setActionTarget] = useState<FeedbackEntry | null>(null);
+  const [trendViewMode, setTrendViewMode] = useState<'daily' | 'weekly'>('daily');
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -130,8 +132,8 @@ export const DashboardOverview: React.FC<Props> = ({
     setEndDate(undefined);
   };
 
-  // 1. Calculate Daily Trend Data (Last 7 Active Feedback Days with Submissions & Average Rating)
-  const getDailyTrendData = () => {
+  // 1. Calculate Daily Timeline Data (30-day scrollable month timeline covering full month)
+  const getTimelineData = () => {
     const dateMap = new Map<string, { count: number; totalRating: number; dateObj: Date }>();
 
     filteredFeedbacks.forEach((f) => {
@@ -143,36 +145,31 @@ export const DashboardOverview: React.FC<Props> = ({
       dateMap.set(key, existing);
     });
 
-    const sortedKeys = Array.from(dateMap.keys()).sort();
-    const targetKeys = sortedKeys.length > 7 ? sortedKeys.slice(-7) : sortedKeys;
+    const result = [];
+    const now = new Date();
+    // 30 days continuous timeline so admin can scroll left/right through the whole month
+    const totalDays = 30;
 
-    if (targetKeys.length === 0) {
-      const result = [];
-      const now = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        result.push({
-          date: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
-          fullDate: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          count: 0,
-          avgRating: 0,
-        });
-      }
-      return result;
+    for (let i = totalDays - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const data = dateMap.get(key);
+
+      const count = data ? data.count : 0;
+      const avgRating = data && data.count > 0 ? Number((data.totalRating / data.count).toFixed(1)) : 0;
+
+      result.push({
+        key,
+        date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+        fullDate: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        count,
+        avgRating,
+      });
     }
 
-    return targetKeys.map((key) => {
-      const data = dateMap.get(key)!;
-      const dayLabel = data.dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-      const avgRating = data.count > 0 ? Number((data.totalRating / data.count).toFixed(1)) : 0;
-      return {
-        date: dayLabel,
-        fullDate: data.dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        count: data.count,
-        avgRating: avgRating,
-      };
-    });
+    return result;
   };
 
   // 2. Calculate Last 7 Weeks Feedback Data
@@ -234,9 +231,31 @@ export const DashboardOverview: React.FC<Props> = ({
     return result;
   };
 
-  const dailyTrendData = getDailyTrendData();
-  const last7WeeksData = getLast7WeeksData();
-  const last5MonthsData = getLast5MonthsData();
+  const timelineData = useMemo(() => getTimelineData(), [filteredFeedbacks]);
+  const last7WeeksData = useMemo(() => getLast7WeeksData(), [filteredFeedbacks]);
+  const last5MonthsData = useMemo(() => getLast5MonthsData(), [filteredFeedbacks]);
+
+  // Auto-scroll timeline to the right (latest date) on mount or view switch
+  useEffect(() => {
+    if (timelineScrollRef.current) {
+      const timer = setTimeout(() => {
+        if (timelineScrollRef.current) {
+          timelineScrollRef.current.scrollLeft = timelineScrollRef.current.scrollWidth;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [trendViewMode, timelineData]);
+
+  const handleScrollTimeline = (direction: 'left' | 'right') => {
+    if (timelineScrollRef.current) {
+      const amount = 350;
+      timelineScrollRef.current.scrollBy({
+        left: direction === 'left' ? -amount : amount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   const getParameterRealOpinion = (key: 'food_taste' | 'food_quality' | 'staff_behaviour' | 'hygiene') => {
     if (!filteredFeedbacks.length) {
@@ -357,10 +376,10 @@ export const DashboardOverview: React.FC<Props> = ({
     if (active && payload && payload.length) {
       const d = payload[0]?.payload;
       return (
-        <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl text-xs font-bold border border-slate-700/80 space-y-1.5 min-w-[160px]">
+        <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl text-xs font-bold border border-slate-700/80 space-y-1.5 min-w-[170px]">
           <p className="text-slate-400 text-[10px] uppercase font-black tracking-wider pb-1 border-b border-slate-700/60 flex items-center justify-between">
             <span>{d?.fullDate}</span>
-            <span className="text-violet-400 font-bold">📅 Day</span>
+            <span className="text-violet-400 font-bold">📅 {d?.dayName || 'Day'}</span>
           </p>
           <div className="flex items-center justify-between gap-4">
             <span className="text-slate-300 text-[11px] font-medium">Submissions:</span>
@@ -636,137 +655,198 @@ export const DashboardOverview: React.FC<Props> = ({
           kpiPortalEl
         )}
 
-      {/* ═══ Main Trend Charts (Clean White Light Theme - Compact Standard Size) ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Chart 1: Daily Trend (Last 7 Days) */}
+      {/* ═══ Main Trend Charts (Clean White Light Theme - Merged Daily/Weekly + Monthly) ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Merged Chart 1 & 2: Daily & Weekly Trend with Scrollable Month Timeline (Col-Span 2) */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+          className="lg:col-span-2 bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-2">
+          {/* Header with Title, Mode Switcher & Scroll Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-1.5 text-[10.5px] font-black text-violet-700 bg-violet-50 border border-violet-200/90 px-3 py-1 rounded-full shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                <span>Daily</span>
+                <span>{trendViewMode === 'daily' ? 'Daily Timeline' : 'Weekly Trend'}</span>
               </div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">Daily Trend</h3>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                {trendViewMode === 'daily' ? 'Daily Feedback Trend (30 Days)' : 'Weekly Aggregated Trend'}
+              </h3>
+            </div>
+
+            {/* View Mode Toggle & Left/Right Scroll Arrows */}
+            <div className="flex items-center gap-2">
+              {/* Daily / Weekly Switcher Pills */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setTrendViewMode('daily')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    trendViewMode === 'daily'
+                      ? 'bg-white text-violet-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Daily
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTrendViewMode('weekly')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    trendViewMode === 'weekly'
+                      ? 'bg-white text-teal-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Weekly
+                </button>
+              </div>
+
+              {/* Scroll Controls (Active for Daily Scrollable View) */}
+              {trendViewMode === 'daily' && (
+                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleScrollTimeline('left')}
+                    title="Scroll left to see past dates"
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[10px] font-bold text-slate-500 px-1 hidden sm:inline">
+                    Scroll Date
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleScrollTimeline('right')}
+                    title="Scroll right to see recent dates"
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="h-48 sm:h-52 w-full pt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyTrendData} margin={{ top: 8, right: 18, left: -22, bottom: 2 }}>
-                <defs>
-                  <linearGradient id="dailyAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  stroke="#334155"
-                  fontSize={10}
-                  fontWeight={800}
-                  tickLine={true}
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                  interval={0}
-                  tickMargin={4}
-                />
-                <YAxis
-                  stroke="#334155"
-                  fontSize={11}
-                  fontWeight={800}
-                  tickLine={true}
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                  allowDecimals={false}
-                  tickMargin={2}
-                />
-                <Tooltip content={<DailyChartTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#7c3aed"
-                  strokeWidth={3.5}
-                  fillOpacity={1}
-                  fill="url(#dailyAreaGradient)"
-                  dot={{ r: 4.5, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 2 }}
-                  activeDot={{ r: 7.5, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 3 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
+          {/* Subtext info for scroll */}
+          {trendViewMode === 'daily' && (
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1 px-1">
+              <span>← Past Dates of the Month</span>
+              <span className="font-semibold text-violet-600">👈 Scroll horizontally to inspect all 30 days 👉</span>
+              <span>Today (Latest) →</span>
+            </div>
+          )}
 
-        {/* Chart 2: Weekly Trend */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1.5 text-[10.5px] font-black text-teal-700 bg-teal-50 border border-teal-200/90 px-3 py-1 rounded-full shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                <span>Weekly</span>
-              </div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">Weekly Trend</h3>
+          {/* Chart Rendering */}
+          <div 
+            ref={timelineScrollRef}
+            className="w-full overflow-x-auto pb-1 pt-1 scroll-smooth"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#cbd5e1 transparent',
+            }}
+          >
+            <div 
+              style={{ 
+                minWidth: trendViewMode === 'daily' ? '1250px' : '100%', 
+                height: '215px' 
+              }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                {trendViewMode === 'daily' ? (
+                  <AreaChart data={timelineData} margin={{ top: 8, right: 24, left: -20, bottom: 2 }}>
+                    <defs>
+                      <linearGradient id="dailyAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#334155"
+                      fontSize={10}
+                      fontWeight={800}
+                      tickLine={true}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                      interval={0}
+                      tickMargin={6}
+                    />
+                    <YAxis
+                      stroke="#334155"
+                      fontSize={11}
+                      fontWeight={800}
+                      tickLine={true}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                      allowDecimals={false}
+                      tickMargin={2}
+                    />
+                    <Tooltip content={<DailyChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#7c3aed"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#dailyAreaGradient)"
+                      dot={{ r: 4, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 2 }}
+                      activeDot={{ r: 7, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 3 }}
+                    />
+                  </AreaChart>
+                ) : (
+                  <AreaChart data={last7WeeksData} margin={{ top: 8, right: 18, left: -22, bottom: 2 }}>
+                    <defs>
+                      <linearGradient id="weeklyAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
+                    <XAxis
+                      dataKey="week"
+                      stroke="#334155"
+                      fontSize={10}
+                      fontWeight={800}
+                      tickLine={true}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                      tickMargin={4}
+                    />
+                    <YAxis
+                      stroke="#334155"
+                      fontSize={11}
+                      fontWeight={800}
+                      tickLine={true}
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                      allowDecimals={false}
+                      tickMargin={2}
+                    />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#0d9488"
+                      strokeWidth={3.5}
+                      fillOpacity={1}
+                      fill="url(#weeklyAreaGradient)"
+                      dot={{ r: 4.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }}
+                      activeDot={{ r: 7.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 3 }}
+                    />
+                  </AreaChart>
+                )}
+              </ResponsiveContainer>
             </div>
           </div>
-
-          <div className="h-48 sm:h-52 w-full pt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={last7WeeksData} margin={{ top: 8, right: 18, left: -22, bottom: 2 }}>
-                <defs>
-                  <linearGradient id="weeklyAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
-                <XAxis
-                  dataKey="week"
-                  stroke="#334155"
-                  fontSize={10}
-                  fontWeight={800}
-                  tickLine={true}
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                  tickMargin={4}
-                />
-                <YAxis
-                  stroke="#334155"
-                  fontSize={11}
-                  fontWeight={800}
-                  tickLine={true}
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                  allowDecimals={false}
-                  tickMargin={2}
-                />
-                <Tooltip content={<CustomChartTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#0d9488"
-                  strokeWidth={3.5}
-                  fillOpacity={1}
-                  fill="url(#weeklyAreaGradient)"
-                  dot={{ r: 4.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }}
-                  activeDot={{ r: 7.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 3 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
         </motion.div>
 
-        {/* Chart 3: Monthly Trend */}
+        {/* Chart 2: Monthly Trend (Col-Span 1) */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+          className="lg:col-span-1 bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2.5">
