@@ -235,6 +235,16 @@ export const DashboardOverview: React.FC<Props> = ({
   const last7WeeksData = useMemo(() => getLast7WeeksData(), [filteredFeedbacks]);
   const last5MonthsData = useMemo(() => getLast5MonthsData(), [filteredFeedbacks]);
 
+  // Compute shared Y-Axis domain max so fixed Y-axis and scrollable chart match 1:1
+  const timelineMaxCount = useMemo(() => {
+    const dailyMax = Math.max(0, ...timelineData.map((d: any) => Number(d.count) || 0));
+    const weeklyMax = Math.max(0, ...last7WeeksData.map((d: any) => Number(d.count) || 0));
+    const activeMax = trendViewMode === 'daily' ? dailyMax : weeklyMax;
+    if (activeMax <= 4) return 6;
+    if (activeMax <= 8) return 10;
+    return Math.ceil(activeMax * 1.15);
+  }, [timelineData, last7WeeksData, trendViewMode]);
+
   // Auto-scroll timeline to the right (latest date) on mount or view switch
   useEffect(() => {
     if (timelineScrollRef.current) {
@@ -742,103 +752,136 @@ export const DashboardOverview: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Chart Rendering */}
-          <div 
-            ref={timelineScrollRef}
-            className="w-full overflow-x-auto pb-1 pt-1 scroll-smooth"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#cbd5e1 transparent',
-            }}
-          >
+          {/* Chart Rendering with Fixed Sticky Y-Axis */}
+          <div className="relative w-full flex items-stretch border border-slate-200/80 rounded-2xl bg-white overflow-hidden shadow-2xs">
+            {/* 1. Permanent Fixed Y-Axis Column (Never scrolls away) */}
             <div 
-              style={{ 
-                minWidth: trendViewMode === 'daily' ? '1250px' : '100%', 
-                height: '215px' 
-              }}
+              className="w-[38px] sm:w-[44px] shrink-0 bg-white z-10 border-r border-slate-200/90 shadow-[4px_0_10px_-3px_rgba(0,0,0,0.05)] select-none"
+              style={{ height: '215px' }}
             >
               <ResponsiveContainer width="100%" height="100%">
-                {trendViewMode === 'daily' ? (
-                  <AreaChart data={timelineData} margin={{ top: 8, right: 24, left: -20, bottom: 2 }}>
-                    <defs>
-                      <linearGradient id="dailyAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      stroke="#334155"
-                      fontSize={10}
-                      fontWeight={800}
-                      tickLine={true}
-                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                      interval={0}
-                      tickMargin={6}
-                    />
-                    <YAxis
-                      stroke="#334155"
-                      fontSize={11}
-                      fontWeight={800}
-                      tickLine={true}
-                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                      allowDecimals={false}
-                      tickMargin={2}
-                    />
-                    <Tooltip content={<DailyChartTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#7c3aed"
-                      strokeWidth={3}
-                      fillOpacity={1}
-                      fill="url(#dailyAreaGradient)"
-                      dot={{ r: 4, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 2 }}
-                      activeDot={{ r: 7, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 3 }}
-                    />
-                  </AreaChart>
-                ) : (
-                  <AreaChart data={last7WeeksData} margin={{ top: 8, right: 18, left: -22, bottom: 2 }}>
-                    <defs>
-                      <linearGradient id="weeklyAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
-                    <XAxis
-                      dataKey="week"
-                      stroke="#334155"
-                      fontSize={10}
-                      fontWeight={800}
-                      tickLine={true}
-                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                      tickMargin={4}
-                    />
-                    <YAxis
-                      stroke="#334155"
-                      fontSize={11}
-                      fontWeight={800}
-                      tickLine={true}
-                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
-                      allowDecimals={false}
-                      tickMargin={2}
-                    />
-                    <Tooltip content={<CustomChartTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#0d9488"
-                      strokeWidth={3.5}
-                      fillOpacity={1}
-                      fill="url(#weeklyAreaGradient)"
-                      dot={{ r: 4.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }}
-                      activeDot={{ r: 7.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 3 }}
-                    />
-                  </AreaChart>
-                )}
+                <AreaChart
+                  data={trendViewMode === 'daily' ? timelineData : last7WeeksData}
+                  margin={{ top: 8, right: 0, left: -14, bottom: 2 }}
+                >
+                  <YAxis
+                    domain={[0, timelineMaxCount]}
+                    stroke="#334155"
+                    fontSize={11}
+                    fontWeight={800}
+                    tickLine={true}
+                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                    allowDecimals={false}
+                    tickMargin={4}
+                  />
+                  {/* Invisible matching X-Axis to align plot heights pixel-perfectly */}
+                  <XAxis
+                    dataKey={trendViewMode === 'daily' ? 'date' : 'week'}
+                    height={trendViewMode === 'daily' ? 30 : 26}
+                    tick={false}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* 2. Scrollable Chart Body (Scrolls smoothly horizontally) */}
+            <div 
+              ref={timelineScrollRef}
+              className="flex-1 overflow-x-auto pb-1 scroll-smooth"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#cbd5e1 transparent',
+              }}
+            >
+              <div 
+                style={{ 
+                  minWidth: trendViewMode === 'daily' ? '1250px' : '100%', 
+                  height: '215px' 
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  {trendViewMode === 'daily' ? (
+                    <AreaChart 
+                      data={timelineData} 
+                      margin={{ top: 8, right: 24, left: 10, bottom: 2 }}
+                    >
+                      <defs>
+                        <linearGradient id="dailyAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#334155"
+                        fontSize={10}
+                        fontWeight={800}
+                        tickLine={true}
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                        interval={0}
+                        tickMargin={6}
+                        height={30}
+                      />
+                      <YAxis
+                        domain={[0, timelineMaxCount]}
+                        hide={true}
+                      />
+                      <Tooltip content={<DailyChartTooltip />} />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="#7c3aed"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#dailyAreaGradient)"
+                        dot={{ r: 4, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 2 }}
+                        activeDot={{ r: 7, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 3 }}
+                      />
+                    </AreaChart>
+                  ) : (
+                    <AreaChart 
+                      data={last7WeeksData} 
+                      margin={{ top: 8, right: 18, left: 10, bottom: 2 }}
+                    >
+                      <defs>
+                        <linearGradient id="weeklyAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.45} />
+                          <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="4 4" stroke="#cbd5e1" strokeWidth={1} vertical={false} />
+                      <XAxis
+                        dataKey="week"
+                        stroke="#334155"
+                        fontSize={10}
+                        fontWeight={800}
+                        tickLine={true}
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+                        tickMargin={4}
+                        height={26}
+                      />
+                      <YAxis
+                        domain={[0, timelineMaxCount]}
+                        hide={true}
+                      />
+                      <Tooltip content={<CustomChartTooltip />} />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="#0d9488"
+                        strokeWidth={3.5}
+                        fillOpacity={1}
+                        fill="url(#weeklyAreaGradient)"
+                        dot={{ r: 4.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }}
+                        activeDot={{ r: 7.5, fill: '#0d9488', stroke: '#fff', strokeWidth: 3 }}
+                      />
+                    </AreaChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </motion.div>
