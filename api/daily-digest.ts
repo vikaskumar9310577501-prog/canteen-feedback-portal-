@@ -98,6 +98,22 @@ function getTransporter() {
   });
 }
 
+// Format IST Time safely (Asia/Kolkata)
+function formatISTTime(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(d);
+  } catch {
+    return '';
+  }
+}
+
 // Build Clean Executive Email (Plant-Specific)
 function buildPlantExecutiveEmailHtml(params: {
   plantName: string;
@@ -257,9 +273,9 @@ function buildPlantExecutiveEmailHtml(params: {
             </tr>
           </table>
 
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; border-spacing: 0 8px; font-family: Arial, sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; border-spacing: 0 10px; font-family: Arial, sans-serif;">
             ${topUnsatisfied.map((item: any, idx: number) => {
-              const timeFormatted = item.created_at ? new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+              const timeFormatted = formatISTTime(item.created_at);
               const rating = item.overall_rating || 1;
               const remark = item.remark?.trim() || 'Unsatisfactory experience reported';
               const meal = item.meal_type || 'Meal';
@@ -273,6 +289,22 @@ function buildPlantExecutiveEmailHtml(params: {
               if (item.food_quality) subScores.push(`Quality: ${item.food_quality}★`);
               if (item.hygiene) subScores.push(`Hygiene: ${item.hygiene}★`);
               if (item.staff_behaviour) subScores.push(`Staff: ${item.staff_behaviour}★`);
+
+              const submitterParts: string[] = [];
+              if (item.emp_name) submitterParts.push(`Employee: <strong>${item.emp_name}</strong>`);
+              else submitterParts.push(`Employee: <span style="color: #64748B;">Anonymous</span>`);
+              if (item.emp_id || item.emp_code) submitterParts.push(`ID: <strong>${item.emp_id || item.emp_code}</strong>`);
+              if (item.department) submitterParts.push(`Dept: ${item.department}`);
+              if (item.shift) submitterParts.push(`Shift: ${item.shift}`);
+
+              const mediaBadges: string[] = [];
+              const imgCount = Array.isArray(item.images) ? item.images.length : (item.images ? 1 : 0);
+              if (imgCount > 0) {
+                mediaBadges.push(`📷 ${imgCount} Photo${imgCount > 1 ? 's' : ''} Attached`);
+              }
+              if (item.video_url) {
+                mediaBadges.push(`🎥 Video Evidence Attached`);
+              }
 
               return `
                 <tr>
@@ -295,6 +327,20 @@ function buildPlantExecutiveEmailHtml(params: {
                           "${remark}"
                         </td>
                       </tr>
+                      ${submitterParts.length > 0 ? `
+                        <tr>
+                          <td colspan="2" style="padding-top: 6px; font-size: 11px; color: #475569;">
+                            👤 ${submitterParts.join(' &bull; ')}
+                          </td>
+                        </tr>
+                      ` : ''}
+                      ${mediaBadges.length > 0 ? `
+                        <tr>
+                          <td colspan="2" style="padding-top: 6px;">
+                            ${mediaBadges.map(b => `<span style="display: inline-block; background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 6px;">${b}</span>`).join('')}
+                          </td>
+                        </tr>
+                      ` : ''}
                       ${subScores.length > 0 ? `
                         <tr>
                           <td colspan="2" style="padding-top: 6px; font-size: 10px; color: #64748B; font-weight: 700;">
@@ -304,8 +350,10 @@ function buildPlantExecutiveEmailHtml(params: {
                       ` : ''}
                       ${item.action_taken ? `
                         <tr>
-                          <td colspan="2" style="padding-top: 6px; font-size: 11px; color: #166534; font-weight: 700;">
-                            Corrective Action: ${item.action_taken}
+                          <td colspan="2" style="padding-top: 6px;">
+                            <div style="font-size: 11px; color: #166534; font-weight: 700; background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 6px; padding: 6px 10px;">
+                              ✅ Corrective Action: ${item.action_taken}
+                            </div>
                           </td>
                         </tr>
                       ` : ''}
@@ -315,6 +363,11 @@ function buildPlantExecutiveEmailHtml(params: {
               `;
             }).join('')}
           </table>
+          <div style="margin-top: 16px; text-align: center;">
+            <a href="https://canteen-feedback-portal.vercel.app" style="display: inline-block; background-color: #0284C7; color: #FFFFFF; font-size: 12px; font-weight: 800; padding: 10px 22px; border-radius: 8px; text-decoration: none; letter-spacing: 0.3px;">
+              🔍 Open Admin Portal to Review & Take Action →
+            </a>
+          </div>
         </div>
       ` : ''}
 

@@ -1583,7 +1583,8 @@ export const SettingsPage: React.FC<Props> = ({
                           time: '01:26 PM',
                           rating: 1,
                           remark: 'A cockroach has appeared in the food',
-                          tags: 'Hygiene & Food Safety',
+                          employee: 'Rahul Sharma (EMP-4022) • Quality Dept • Day Shift',
+                          media: '📷 1 Photo Attached',
                           status: 'Action Pending',
                         },
                         {
@@ -1592,7 +1593,8 @@ export const SettingsPage: React.FC<Props> = ({
                           time: '01:15 PM',
                           rating: 1,
                           remark: 'खाने में कॉकरोच निकला है, दाल भी बहुत ठंडी थी',
-                          tags: 'Hygiene & Temperature',
+                          employee: 'Anonymous Employee • Production Dept',
+                          media: null,
                           status: 'Action Pending',
                         },
                         {
@@ -1601,7 +1603,8 @@ export const SettingsPage: React.FC<Props> = ({
                           time: '01:05 PM',
                           rating: 1,
                           remark: 'One insect found in vegetable gravy, kitchen inspection needed urgently',
-                          tags: 'Hygiene Alert',
+                          employee: 'Vikas Kumar (EMP-2040) • Day Shift',
+                          media: '🎥 Video Attached',
                           status: 'Action Pending',
                         },
                         {
@@ -1610,7 +1613,8 @@ export const SettingsPage: React.FC<Props> = ({
                           time: '08:45 PM',
                           rating: 2,
                           remark: 'Roti was uncooked and rubbery, vegetables had too much oil',
-                          tags: 'Food Quality',
+                          employee: 'Anonymous Employee • Night Shift',
+                          media: null,
                           status: 'Action Pending',
                         },
                         {
@@ -1619,7 +1623,8 @@ export const SettingsPage: React.FC<Props> = ({
                           time: '12:50 PM',
                           rating: 2,
                           remark: 'Very slow refill at service counter causing long queues',
-                          tags: 'Service Speed',
+                          employee: 'Amit Verma (EMP-1102) • Store Dept',
+                          media: null,
                           status: 'Action Pending',
                         },
                       ].map((item) => (
@@ -1646,12 +1651,22 @@ export const SettingsPage: React.FC<Props> = ({
                           <p className="text-[11px] text-slate-700 font-semibold pl-5 italic">
                             "{item.remark}"
                           </p>
-                          <div className="pl-5 text-[10px] text-slate-500 font-bold flex items-center gap-1">
-                            <span>Key Concern:</span>
-                            <span className="text-rose-700 font-semibold">{item.tags}</span>
+                          <div className="pl-5 text-[10px] text-slate-500 font-medium flex items-center gap-2 flex-wrap">
+                            <span>👤 {item.employee}</span>
+                            {item.media && (
+                              <span className="bg-blue-100 text-blue-700 border border-blue-200 text-[9px] font-bold px-1.5 py-0.2 rounded-full">
+                                {item.media}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="pt-2 text-center">
+                      <div className="inline-block bg-sky-600 text-white text-[11px] font-bold px-4 py-1.5 rounded-lg shadow-sm">
+                        🔍 Open Admin Portal to Review & Take Action →
+                      </div>
                     </div>
                   </div>
                 </div>
