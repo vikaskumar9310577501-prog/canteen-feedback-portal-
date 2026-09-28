@@ -98,17 +98,29 @@ function getTransporter() {
   });
 }
 
-// Format IST Time safely (Asia/Kolkata)
+// Bulletproof IST Time Formatter (strictly UTC + 5h 30m)
+// Eliminates all server locale / ICU differences so 12:xx noon is 100% strictly PM, never AM
 function formatISTTime(isoString?: string): string {
   if (!isoString) return '';
   try {
     const d = new Date(isoString);
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(d);
+    if (isNaN(d.getTime())) return '';
+
+    // Indian Standard Time is strictly UTC + 5 hours 30 minutes
+    const istMs = d.getTime() + (5.5 * 60 * 60 * 1000);
+    const istDate = new Date(istMs);
+
+    const hours24 = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes();
+    const ampm = hours24 >= 12 ? 'PM' : 'AM';
+
+    let hours12 = hours24 % 12;
+    if (hours12 === 0) hours12 = 12;
+
+    const strHours = String(hours12).padStart(2, '0');
+    const strMinutes = String(minutes).padStart(2, '0');
+
+    return `${strHours}:${strMinutes} ${ampm}`;
   } catch {
     return '';
   }
@@ -290,10 +302,12 @@ function buildPlantExecutiveEmailHtml(params: {
               if (item.hygiene) subScores.push(`Hygiene: ${item.hygiene}★`);
               if (item.staff_behaviour) subScores.push(`Staff: ${item.staff_behaviour}★`);
 
+              const empName = item.employee_name || item.emp_name;
+              const empId = item.employee_id || item.emp_id || item.emp_code;
               const submitterParts: string[] = [];
-              if (item.emp_name) submitterParts.push(`Employee: <strong>${item.emp_name}</strong>`);
+              if (empName) submitterParts.push(`Employee: <strong>${empName}</strong>`);
               else submitterParts.push(`Employee: <span style="color: #64748B;">Anonymous</span>`);
-              if (item.emp_id || item.emp_code) submitterParts.push(`ID: <strong>${item.emp_id || item.emp_code}</strong>`);
+              if (empId) submitterParts.push(`ID: <strong>${empId}</strong>`);
               if (item.department) submitterParts.push(`Dept: ${item.department}`);
               if (item.shift) submitterParts.push(`Shift: ${item.shift}`);
 
@@ -425,12 +439,13 @@ export default async function handler(req: any, res: any) {
       unsatisfied_threshold_alert: 20,
     };
 
-    // Compute current IST date and time
-    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const currentHour = nowIST.getHours();
-    const currentMinute = nowIST.getMinutes();
+    // Compute current IST date and time with 100% deterministic UTC + 5:30 math
+    const nowUtcMs = Date.now();
+    const nowIST = new Date(nowUtcMs + (5.5 * 60 * 60 * 1000));
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
     const currentTimeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
-    const todayStr = `${nowIST.getFullYear()}-${String(nowIST.getMonth() + 1).padStart(2, '0')}-${String(nowIST.getDate()).padStart(2, '0')}`;
+    const todayStr = `${nowIST.getUTCFullYear()}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-${String(nowIST.getUTCDate()).padStart(2, '0')}`;
 
     if (!digestConfig.enabled && !forceSend) {
       return res.status(200).json({

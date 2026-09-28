@@ -359,6 +359,8 @@ export const saveSettings = async (settings: SystemSettings): Promise<SystemSett
 
 export const triggerDailyDigestEmail = async (options?: {
   is_test?: boolean;
+  force?: boolean;
+  plant_id?: string;
   to_emails?: string[];
   cc_emails?: string[];
 }): Promise<{ ok: boolean; message?: string; error?: string }> => {
@@ -367,7 +369,9 @@ export const triggerDailyDigestEmail = async (options?: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        is_test: options?.is_test ?? true,
+        is_test: options?.is_test ?? false,
+        force: options?.force ?? true,
+        plant_id: options?.plant_id,
         to_emails: options?.to_emails,
         cc_emails: options?.cc_emails,
       }),

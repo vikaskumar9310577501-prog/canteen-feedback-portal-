@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { 
@@ -350,6 +350,41 @@ export const SettingsPage: React.FC<Props> = ({
   const [newCcInput, setNewCcInput] = useState('');
   const [isSavingDigest, setIsSavingDigest] = useState(false);
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [isSendingLiveDigest, setIsSendingLiveDigest] = useState(false);
+
+  // Synchronize when settings load asynchronously from server/database
+  useEffect(() => {
+    if (settings.daily_digest) {
+      setDigestEnabled(settings.daily_digest.enabled ?? true);
+      if (settings.daily_digest.to_emails?.length) {
+        setGlobalToEmails(settings.daily_digest.to_emails);
+      }
+      if (settings.daily_digest.cc_emails?.length) {
+        setGlobalCcEmails(settings.daily_digest.cc_emails);
+      }
+      if (settings.daily_digest.scheduled_time) {
+        setScheduledTime(settings.daily_digest.scheduled_time);
+      }
+      if (settings.daily_digest.unsatisfied_threshold_alert !== undefined) {
+        setUnsatisfiedAlertThreshold(settings.daily_digest.unsatisfied_threshold_alert);
+      }
+      if (settings.daily_digest.plant_recipients) {
+        setPlantRecipients(settings.daily_digest.plant_recipients);
+      }
+    }
+  }, [settings.daily_digest]);
+
+  const formatTimeDisplay = (timeStr: string) => {
+    try {
+      const [h, m] = (timeStr || '20:00').split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) return timeStr;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  };
 
   // Active TO & CC emails depending on selected plant scope
   const activeToEmails = selectedPlantScope === 'all'
@@ -499,6 +534,24 @@ export const SettingsPage: React.FC<Props> = ({
       toast.error(err?.message || 'Failed to send test daily digest email');
     } finally {
       setIsSendingTestEmail(false);
+    }
+  };
+
+  const handleSendTodayDigestNow = async () => {
+    if (!window.confirm('Do you want to dispatch today\'s live plant daily digest emails right now to all configured distribution lists?')) {
+      return;
+    }
+    setIsSendingLiveDigest(true);
+    try {
+      const res = await triggerDailyDigestEmail({
+        is_test: false,
+        force: true,
+      });
+      toast.success(res.message || 'Today\'s live daily digest dispatched successfully to all plant recipients!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to dispatch today\'s live digest');
+    } finally {
+      setIsSendingLiveDigest(false);
     }
   };
 
@@ -1291,19 +1344,58 @@ export const SettingsPage: React.FC<Props> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Scheduled Daily Dispatch Time (IST)</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-extrabold text-slate-700 uppercase flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Scheduled Dispatch Time (IST)</span>
+                      </label>
+                      <span className="text-[11px] font-black text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
+                        {formatTimeDisplay(scheduledTime)} IST
+                      </span>
+                    </div>
+
                     <input
                       type="time"
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono font-bold focus:border-emerald-500 shadow-2xs"
                     />
-                    <p className="text-[10px] text-slate-400 font-medium mt-1">
-                      Emails are dispatched once daily after shifts complete (e.g. 20:00 / 08:00 PM).
-                    </p>
+
+                    {/* Quick Shift Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      <span className="text-[10px] text-slate-400 font-bold">Shift Presets:</span>
+                      {[
+                        { label: '02:30 PM (Lunch End)', time: '14:30' },
+                        { label: '07:30 PM (Shift End)', time: '19:30' },
+                        { label: '08:00 PM (Default)', time: '20:00' },
+                        { label: '08:30 PM (Shift 2)', time: '20:30' },
+                        { label: '09:00 PM (Night)', time: '21:00' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.time}
+                          type="button"
+                          onClick={() => setScheduledTime(preset.time)}
+                          className={`text-[10px] px-2 py-0.5 rounded-lg border font-bold cursor-pointer transition-all ${
+                            scheduledTime === preset.time
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Instant Force Dispatch Button */}
+                    <button
+                      type="button"
+                      onClick={handleSendTodayDigestNow}
+                      disabled={isSendingLiveDigest}
+                      className="mt-2.5 w-full py-2 px-3 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5 text-sky-600" />
+                      <span>{isSendingLiveDigest ? 'Dispatching Live Digest to All Plants...' : '🚀 Send Today\'s Live Digest Now (Bypass Schedule)'}</span>
+                    </button>
                   </div>
 
                   <div>

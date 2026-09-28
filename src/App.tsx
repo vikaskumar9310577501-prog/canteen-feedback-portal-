@@ -107,21 +107,21 @@ export const App: React.FC = () => {
     activeFiltersRef.current = activeFilters;
   }, [activeFilters]);
 
-  // Background check for daily digest dispatch (ensures email triggers even if external cron is delayed)
+  // Automated background trigger for daily digest email dispatch
+  // Periodically pings /api/daily-digest (from any active screen: 24/7 canteen kiosk tablets or admin screens)
+  // so that the exact moment the configured IST dispatch time arrives, the email is dispatched automatically.
   useEffect(() => {
-    if (appMode === 'admin_dashboard') {
-      const pingDigest = async () => {
-        try {
-          await fetch('/api/daily-digest');
-        } catch {
-          // silent background ping
-        }
-      };
-      pingDigest();
-      const interval = setInterval(pingDigest, 10 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [appMode]);
+    const pingDigest = async () => {
+      try {
+        await fetch('/api/daily-digest');
+      } catch {
+        // silent background ping
+      }
+    };
+    pingDigest();
+    const interval = setInterval(pingDigest, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Browser Desktop Tab Notification Permission (admin only — mobile kiosk cannot use Notification API)
   const requestNotificationPermission = () => {
