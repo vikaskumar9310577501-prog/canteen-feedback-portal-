@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 import { 
   FeedbackEntry, 
   Plant, 
@@ -92,7 +93,48 @@ const deduplicatePlants = (plantList: Plant[]): Plant[] => {
   return result;
 };
 
+const fetchPlantsFromApi = async (): Promise<Plant[] | null> => {
+  try {
+    const response = await fetch('/api/plants', { cache: 'no-store' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return Array.isArray(data?.plants) ? (data.plants as Plant[]) : null;
+  } catch {
+    return null;
+  }
+};
+
+const savePlantsToApi = async (plantList: Plant[]): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/plants', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plants: plantList }),
+    });
+    return response.ok;
+  } catch (e) {
+    console.warn('Plants API save failed', e);
+    return false;
+  }
+};
+
+const mergeWithInitialPlants = (list: Plant[]): Plant[] => {
+  // Merge initial official plants so Bhiwadi and Supa plants are always available
+  const mergedMap = new Map<string, Plant>();
+  INITIAL_PLANTS.forEach(p => mergedMap.set(p.id, p));
+  list.forEach(p => mergedMap.set(p.id, p));
+  return deduplicatePlants(Array.from(mergedMap.values()));
+};
+
 export const fetchPlants = async (): Promise<Plant[]> => {
+  // Shared server store first — required so QR (phone) scans can find admin-added plants
+  const apiList = await fetchPlantsFromApi();
+  if (apiList) {
+    const cleanList = mergeWithInitialPlants(apiList);
+    setLocalData(STORAGE_KEYS.PLANTS, cleanList);
+    return cleanList;
+  }
+
   let list: Plant[] = [];
 
   if (isSupabaseConfigured && supabase) {
@@ -121,13 +163,37 @@ export const fetchPlants = async (): Promise<Plant[]> => {
     }
   }
 
-  // Merge initial official plants so Bhiwadi and Supa plants are always available
-  const mergedMap = new Map<string, Plant>();
-  INITIAL_PLANTS.forEach(p => mergedMap.set(p.id, p));
-  list.forEach(p => mergedMap.set(p.id, p));
-  const cleanList = deduplicatePlants(Array.from(mergedMap.values()));
+  const cleanList = mergeWithInitialPlants(list);
   setLocalData(STORAGE_KEYS.PLANTS, cleanList);
   return cleanList;
+};
+
+/**
+ * One-time upload of plants that were added before the shared plants API existed
+ * (they live only in the admin browser's localStorage). Only runs while the server
+ * store is still empty, so plants deleted on the server are never resurrected.
+ */
+export const migrateLocalPlantsToApi = async (): Promise<Plant[] | null> => {
+  const apiList = await fetchPlantsFromApi();
+  if (apiList) return null;
+
+  const localList = getLocalData<Plant[]>(STORAGE_KEYS.PLANTS, []);
+  const initialIds = new Set(INITIAL_PLANTS.map(p => p.id));
+  const hasCustomPlants = Array.isArray(localList) && localList.some(p => p?.id && !initialIds.has(p.id));
+  if (!hasCustomPlants) return null;
+
+  const merged = mergeWithInitialPlants(localList);
+  const ok = await savePlantsToApi(merged);
+  return ok ? merged : null;
+};
+
+const persistPlants = async (updated: Plant[]): Promise<Plant[]> => {
+  const ok = await savePlantsToApi(updated);
+  if (!ok) {
+    toast.error('Plant server par save nahi hua. QR scan karne par ye plant employees ko nahi dikhega.');
+  }
+  setLocalData(STORAGE_KEYS.PLANTS, updated);
+  return updated;
 };
 
 export const savePlant = async (plant: Plant): Promise<Plant[]> => {
@@ -141,8 +207,7 @@ export const savePlant = async (plant: Plant): Promise<Plant[]> => {
       // fallback
     }
   }
-  setLocalData(STORAGE_KEYS.PLANTS, updated);
-  return updated;
+  return persistPlants(updated);
 };
 
 export const updatePlant = async (plant: Plant): Promise<Plant[]> => {
@@ -156,8 +221,7 @@ export const updatePlant = async (plant: Plant): Promise<Plant[]> => {
       // fallback
     }
   }
-  setLocalData(STORAGE_KEYS.PLANTS, updated);
-  return updated;
+  return persistPlants(updated);
 };
 
 export const deletePlant = async (id: string): Promise<Plant[]> => {
@@ -170,8 +234,7 @@ export const deletePlant = async (id: string): Promise<Plant[]> => {
   }
   const current = await fetchPlants();
   const updated = deduplicatePlants(current.filter(p => p.id !== id));
-  setLocalData(STORAGE_KEYS.PLANTS, updated);
-  return updated;
+  return persistPlants(updated);
 };
 
 // -----------------------------------------------------------------------

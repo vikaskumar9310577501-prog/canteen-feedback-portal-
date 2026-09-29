@@ -80,20 +80,17 @@ export const FeedbackFlow: React.FC<Props> = ({
   const lockedPlant = React.useMemo(() => {
     if (!urlPlantParam || !plants || plants.length === 0) return null;
     const query = urlPlantParam.trim().toLowerCase();
+    const norm = (v?: string) => (v || '').trim().toLowerCase();
+    // Exact code/id must win over fuzzy name matches (e.g. "PGTL" would otherwise hit "BHIWADI — PGTL (2040)")
     return (
-      plants.find((p) => {
-        const pCode = (p.code || '').trim().toLowerCase();
-        const pId = (p.id || '').trim().toLowerCase();
-        const pName = (p.name || '').trim().toLowerCase();
-        const pDisp = (p.display_name || '').trim().toLowerCase();
-        return (
-          pCode === query ||
-          pId === query ||
-          pName === query ||
-          pDisp.includes(query) ||
-          (query.length >= 3 && (pCode.includes(query) || pName.includes(query)))
-        );
-      }) || null
+      plants.find((p) => norm(p.code) === query) ||
+      plants.find((p) => norm(p.id) === query) ||
+      plants.find((p) => norm(p.name) === query) ||
+      plants.find((p) => norm(p.display_name).includes(query)) ||
+      (query.length >= 3
+        ? plants.find((p) => norm(p.code).includes(query) || norm(p.name).includes(query))
+        : undefined) ||
+      null
     );
   }, [plants, urlPlantParam]);
 

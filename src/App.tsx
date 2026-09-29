@@ -11,6 +11,7 @@ import {
 import { 
   fetchFeedbacks, 
   fetchPlants, 
+  migrateLocalPlantsToApi,
   fetchSettings, 
   fetchAdmins,
   saveAdminUser,
@@ -207,6 +208,7 @@ export const App: React.FC = () => {
           // Default start screen on refresh
           setIsQrKiosk(false);
           setAppMode('start_screen');
+          await migrateLocalPlantsToApi();
         }
 
         const [fetchedFeedbacks, fetchedPlants, fetchedSettings, fetchedAdmins] = await Promise.all([
