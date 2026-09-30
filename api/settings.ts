@@ -50,6 +50,23 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: 'Settings payload is required' });
       }
 
+      // If scheduled dispatch time was changed, clear sent locks so the new schedule triggers cleanly
+      try {
+        const rawExisting = await redis.get(SETTINGS_KEY);
+        const existing = rawExisting ? (typeof rawExisting === 'string' ? JSON.parse(rawExisting) : rawExisting) : null;
+        const oldTime = existing?.daily_digest?.scheduled_time;
+        const newTime = settings?.daily_digest?.scheduled_time;
+        if (newTime && newTime !== oldTime) {
+          const sentKeys = await redis.keys('canteen:digest:sent:*');
+          for (const k of sentKeys || []) {
+            await redis.del(k);
+          }
+          console.log(`[settings] Cleared ${sentKeys?.length || 0} digest sent locks due to schedule change (${oldTime} -> ${newTime})`);
+        }
+      } catch (clearErr) {
+        console.warn('[settings] Failed to clear digest locks:', clearErr);
+      }
+
       await redis.set(SETTINGS_KEY, JSON.stringify(settings));
       return res.status(200).json({ ok: true, settings });
     }

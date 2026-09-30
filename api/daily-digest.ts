@@ -490,8 +490,19 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 3. Determine active plants
+    // 3. Determine active plants (load from Redis with fallback)
     let plantsList: StoredPlant[] = PLANTS_LOCAL_FALLBACK;
+    try {
+      const rawPlants = await redis.get('canteen:plants');
+      if (rawPlants) {
+        const parsed = typeof rawPlants === 'string' ? JSON.parse(rawPlants) : rawPlants;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          plantsList = parsed.filter((p: any) => p && p.is_active !== false);
+        }
+      }
+    } catch (plantsErr) {
+      console.warn('[daily-digest] Failed to load plants from Redis, using fallback:', plantsErr);
+    }
 
     // If a specific plant is requested for test
     if (requestedPlantId) {
@@ -617,12 +628,15 @@ export default async function handler(req: any, res: any) {
           ? `Immediate Attention Required: Canteen Feedback Improvement - ${plantDisplayName} (${dateStr})`
           : `Daily Canteen Feedback Report - ${plantDisplayName} (${dateStr})`;
 
-      // Check if already sent today for this plant (prevents duplicate emails on automatic cron)
-      const sentKey = `canteen:digest:sent:${plant.id}:${todayStr}`;
+      // Check if already sent today for this plant and scheduled time slot
+      const scheduledTimeTag = (digestConfig.scheduled_time || '20:00').replace(':', '');
+      const sentKey = `canteen:digest:sent:${plant.id}:${todayStr}:${scheduledTimeTag}`;
+      const legacySentKey = `canteen:digest:sent:${plant.id}:${todayStr}`;
+
       if (!forceSend && !isTestMode) {
         const alreadySent = await redis.get(sentKey);
         if (alreadySent) {
-          console.log(`[daily-digest] Already sent today for plant ${plantDisplayName}`);
+          console.log(`[daily-digest] Already sent today for plant ${plantDisplayName} (Slot: ${scheduledTimeTag})`);
           continue;
         }
       }
@@ -639,6 +653,7 @@ export default async function handler(req: any, res: any) {
         // Mark as sent today with 24 hours expiration (only for real automated cron/digest runs, never for test or force runs)
         if (!isTestMode && !forceSend) {
           await redis.set(sentKey, new Date().toISOString(), { ex: 86400 });
+          await redis.del(legacySentKey);
         }
 
         console.log(`[daily-digest] Sent email for ${plantDisplayName} to:`, toEmails);
