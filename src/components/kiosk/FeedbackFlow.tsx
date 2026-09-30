@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { LayoutDashboard, Lock } from 'lucide-react';
 import { Plant, MealType, ShiftType, LanguageCode, SystemSettings, FeedbackEntry } from '../../types/database';
 import { submitFeedback } from '../../lib/supabase';
-import { sendFeedbackEmailNotification } from '../../lib/emailService';
 import { LanguageSelector } from './LanguageSelector';
 import { WelcomeScreen } from './WelcomeScreen';
 import { EmployeeInfoStep } from './EmployeeInfoStep';
@@ -182,10 +181,6 @@ export const FeedbackFlow: React.FC<Props> = ({
 
     try {
       await submitFeedback(payload);
-
-      if (settings.enable_email_alerts !== false) {
-        sendFeedbackEmailNotification(payload, settings.notification_email, chosenPlantObj);
-      }
 
       markSubmitted();
       toast.success('Feedback submitted successfully!');

@@ -1,33 +1,79 @@
-// OTP Generation & Verification Engine using Microsoft Office 365 SMTP (verify.software2040@pgel.in)
+import { AdminProfile } from '../types/database';
 
-export const generateOTP = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+export interface RequestOtpResponse {
+  ok: boolean;
+  message?: string;
+  error?: string;
+}
 
-export const sendOTPEmail = async (
-  recipientEmail: string,
-  otp: string,
-  userName: string = 'Employee',
-  type: 'feedback' | 'login' = 'feedback'
-): Promise<boolean> => {
+export interface VerifyOtpResponse {
+  ok: boolean;
+  message?: string;
+  admin?: AdminProfile;
+  error?: string;
+}
+
+/**
+ * Request server-side generated 6-digit OTP sent via SMTP
+ */
+export const requestLoginOTP = async (email: string): Promise<RequestOtpResponse> => {
   try {
     const res = await fetch('/api/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: recipientEmail,
-        otp: otp,
-        employeeName: userName,
-        type: type,
-      }),
+      body: JSON.stringify({ email }),
     });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      return data?.success !== false;
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data?.error || 'Unable to send OTP right now. Please try again later.',
+      };
     }
-    return false;
-  } catch {
-    return false;
+
+    return {
+      ok: true,
+      message: data?.message || 'OTP has been sent to your registered email.',
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: 'Unable to send OTP right now. Please try again later.',
+    };
+  }
+};
+
+/**
+ * Verify 6-digit OTP against server Redis storage
+ */
+export const verifyLoginOTP = async (email: string, otp: string): Promise<VerifyOtpResponse> => {
+  try {
+    const res = await fetch('/api/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data?.error || 'Invalid OTP. Please try again.',
+      };
+    }
+
+    return {
+      ok: true,
+      message: data?.message || 'Admin OTP Verified successfully!',
+      admin: data?.admin,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: 'Invalid OTP. Please try again.',
+    };
   }
 };
