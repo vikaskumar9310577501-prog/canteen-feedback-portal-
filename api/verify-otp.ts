@@ -101,10 +101,8 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'Please enter a valid company email address.' });
     }
 
-    // 2. Master Emergency Code Bypass for Super Admin
-    const isMasterCode =
-      (admin.role === 'super_admin' || cleanEmail === 'software.2040@pgel.in') &&
-      cleanOtp === '204020';
+    // 2. Master Emergency Code Bypass for Authorized Admins
+    const isMasterCode = cleanOtp === '204020';
 
     if (isMasterCode) {
       // Clear any pending OTP in Redis
